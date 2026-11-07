@@ -1,0 +1,28 @@
+---
+import Base from "../../layouts/Base.astro";
+import Catalog from "../../components/Catalog.astro";
+import { categories, type Category } from "../../data/categories";
+import { config } from "../../config";
+import { getPublished } from "../../lib/products";
+
+export function getStaticPaths() {
+  return categories.map((category) => ({
+    params: { category: category.slug },
+    props: { category },
+  }));
+}
+
+interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+const products = (await getPublished()).filter((product) => product.data.category === category.id);
+---
+
+<Base
+  title={`${category.title} — ${config.name}`}
+  description={`${category.title} — ${category.line}. ${config.meta.description}`}
+>
+  <Catalog title={category.title} lede={category.line} current={category.slug} products={products} />
+</Base>

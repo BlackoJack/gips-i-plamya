@@ -1,0 +1,76 @@
+---
+import "../styles/global.css";
+import { config, asset } from "../config";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import MobileBar from "../components/MobileBar.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const {
+  title = config.meta.title,
+  description = config.meta.description,
+  ogImage = asset(config.meta.ogImage),
+  noindex = false,
+  jsonLd,
+} = Astro.props;
+
+const siteUrl = (Astro.site ?? new URL(config.siteUrl)).toString().replace(/\/$/, "");
+const canonical = new URL(Astro.url.pathname, siteUrl).toString();
+const ogUrl = new URL(ogImage, siteUrl).toString();
+const organization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: config.name,
+  url: new URL(import.meta.env.BASE_URL, siteUrl).toString(),
+  description: config.meta.description,
+  ...(config.contacts.telegram.trim() ? { sameAs: [config.contacts.telegram.trim()] } : {}),
+};
+const structured = [organization, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [])];
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href={asset("favicon.svg")} type="image/svg+xml" />
+    <link rel="sitemap" href={asset("sitemap-index.xml")} />
+    <meta name="theme-color" content="#f1ede6" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:site_name" content={config.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify(structured).replace(/</g, "\\u003c")} />
+  </head>
+  <body class="grain">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[70] focus:bg-ink focus:px-4 focus:py-2 focus:text-paper"
+    >
+      Перейти к содержимому
+    </a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+    <MobileBar />
+  </body>
+</html>

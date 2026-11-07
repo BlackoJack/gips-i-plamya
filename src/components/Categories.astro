@@ -1,0 +1,22 @@
+---
+import { categories } from "../data/categories";
+import { href } from "../config";
+---
+
+<section class="wrap rise pb-16 md:pb-20" aria-label="Категории">
+  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    {
+      categories.map((category) => (
+        <li>
+          <a
+            href={href(`/katalog/${category.slug}`)}
+            class="flex min-h-40 flex-col justify-between border border-ink/12 p-5 transition-colors duration-200 hover:bg-sand"
+          >
+            <span class="font-display text-[2.15rem] leading-none font-medium">{category.title}</span>
+            <span class="mt-8 text-quiet">{category.line}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</section>

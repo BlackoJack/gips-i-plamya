@@ -1,0 +1,35 @@
+---
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import Categories from "../components/Categories.astro";
+import Postcard from "../components/Postcard.astro";
+import Order from "../components/Order.astro";
+import About from "../components/About.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { content } from "../data/content";
+import { getFeatured } from "../lib/products";
+
+const featured = await getFeatured();
+---
+
+<Base>
+  <Hero />
+  <Categories />
+  {
+    featured.length > 0 && (
+      <section class="wrap rise pb-16 md:pb-20">
+        <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none">{content.shelf}</h2>
+        <ul class="mt-10 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((product) => (
+            <li>
+              <ProductCard product={product} level="h3" />
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+  <Postcard />
+  <Order />
+  <About />
+</Base>

@@ -1,0 +1,89 @@
+---
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
+interface Props {
+  images: ImageMetadata[];
+  title: string;
+}
+
+const { images, title } = Astro.props;
+const multiple = images.length > 1;
+---
+
+<div class="grid gap-3" data-gallery={multiple ? "" : undefined}>
+  {
+    images.map((image, index) => (
+      <div data-frame hidden={index !== 0}>
+        <Image
+          src={image}
+          alt={index === 0 ? title : `Кадр ${index + 1} — ${title}`}
+          widths={[640, 960, 1200]}
+          sizes="(min-width: 768px) 58vw, 100vw"
+          quality={76}
+          loading={index === 0 ? "eager" : "lazy"}
+          class="h-auto w-full rounded-[2px]"
+        />
+      </div>
+    ))
+  }
+  {
+    multiple && (
+      <div class="flex flex-wrap gap-2">
+        {images.map((image, index) => (
+          <button
+            type="button"
+            class="thumb"
+            data-thumb
+            aria-pressed={index === 0 ? "true" : "false"}
+            aria-label={`Кадр ${index + 1} из ${images.length}`}
+          >
+            <Image
+              src={image}
+              alt=""
+              width={160}
+              height={160}
+              quality={70}
+              class="h-20 w-20 rounded-[2px] object-cover"
+            />
+          </button>
+        ))}
+      </div>
+    )
+  }
+</div>
+
+{
+  multiple && (
+    <script>
+      function showFrame(root, index) {
+        const frames = [...root.querySelectorAll("[data-frame]")];
+        const thumbs = [...root.querySelectorAll("[data-thumb]")];
+        frames.forEach((frame, frameIndex) => {
+          frame.hidden = frameIndex !== index;
+        });
+        thumbs.forEach((thumb, thumbIndex) => {
+          thumb.setAttribute("aria-pressed", thumbIndex === index ? "true" : "false");
+        });
+      }
+
+      function setup(root) {
+        const thumbs = [...root.querySelectorAll("[data-thumb]")];
+        thumbs.forEach((thumb, index) => {
+          thumb.addEventListener("click", () => showFrame(root, index));
+        });
+        root.addEventListener("keydown", (event) => {
+          if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+          const current = thumbs.findIndex((thumb) => thumb.getAttribute("aria-pressed") === "true");
+          const next = event.key === "ArrowRight" ? current + 1 : current - 1;
+          if (next < 0 || next >= thumbs.length) return;
+          event.preventDefault();
+          showFrame(root, next);
+          thumbs[next].focus();
+        });
+      }
+
+      document.querySelectorAll("[data-gallery]").forEach((root) => setup(root));
+    </script>
+  )
+}

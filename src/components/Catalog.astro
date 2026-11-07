@@ -1,0 +1,59 @@
+---
+import type { Product } from "../lib/products";
+import { categories } from "../data/categories";
+import { content } from "../data/content";
+import { href, telegramHref } from "../config";
+import ProductCard from "./ProductCard.astro";
+
+interface Props {
+  title: string;
+  lede?: string;
+  current: string;
+  products: Product[];
+}
+
+const { title, lede, current, products } = Astro.props;
+const telegram = telegramHref();
+---
+
+<section class="wrap pt-4 pb-20 md:pt-8 md:pb-28">
+  <h1 class="font-display text-[clamp(44px,7vw,80px)] leading-[0.95]">{title}</h1>
+  {lede && <p class="mt-4 text-lg text-quiet">{lede}</p>}
+
+  <nav class="mt-8 flex flex-wrap gap-x-5 gap-y-2" aria-label="Категории">
+    <a class="nav-link" href={href("/katalog")} aria-current={current === "all" ? "page" : undefined}>Все</a>
+    {
+      categories.map((category) => (
+        <a
+          class="nav-link"
+          href={href(`/katalog/${category.slug}`)}
+          aria-current={current === category.slug ? "page" : undefined}
+        >
+          {category.title}
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    products.length === 0 ? (
+      <p class="mt-14 max-w-md text-lg">
+        {content.empty.first}
+        {telegram && (
+          <>
+            {" "}
+            <a class="quiet-link" href={telegram}>{content.empty.second}</a>
+          </>
+        )}
+      </p>
+    ) : (
+      <ul class="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        {products.map((product) => (
+          <li>
+            <ProductCard product={product} />
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>

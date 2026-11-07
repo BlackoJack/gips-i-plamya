@@ -1,0 +1,17 @@
+---
+import { Image } from "astro:assets";
+import { content } from "../data/content";
+import postcard from "../assets/brand/postcard.jpg";
+---
+
+<section class="wrap rise pb-16 md:pb-20">
+  <Image
+    src={postcard}
+    alt={content.alts.postcard}
+    widths={[640, 960, 1280]}
+    sizes="(min-width: 1160px) 1120px, calc(100vw - 2rem)"
+    quality={76}
+    loading="lazy"
+    class="h-auto w-full rounded-[2px]"
+  />
+</section>

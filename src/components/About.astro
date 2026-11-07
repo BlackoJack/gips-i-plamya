@@ -1,0 +1,31 @@
+---
+import { Image } from "astro:assets";
+import { content } from "../data/content";
+import portrait from "../assets/brand/portrait.jpg";
+import mark from "../assets/brand/mark.jpg";
+---
+
+<section id="o-masterskoy" class="wrap rise grid items-center gap-10 pb-20 md:grid-cols-2 md:pb-28">
+  <Image
+    src={portrait}
+    alt={content.alts.portrait}
+    widths={[480, 720, 960]}
+    sizes="(min-width: 768px) 40vw, 100vw"
+    quality={76}
+    loading="lazy"
+    class="h-auto w-full"
+  />
+  <div>
+    <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none">{content.about.title}</h2>
+    <p class="mt-5 max-w-md text-lg">{content.about.text}</p>
+    <Image
+      src={mark}
+      alt={content.alts.mark}
+      widths={[280, 420]}
+      sizes="220px"
+      quality={76}
+      loading="lazy"
+      class="mt-8 h-auto w-full max-w-[220px]"
+    />
+  </div>
+</section>

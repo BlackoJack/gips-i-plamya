@@ -1,0 +1,11 @@
+---
+import Base from "../../layouts/Base.astro";
+import Catalog from "../../components/Catalog.astro";
+import { getPublished } from "../../lib/products";
+
+const products = await getPublished();
+---
+
+<Base>
+  <Catalog title="Изделия" current="all" products={products} />
+</Base>

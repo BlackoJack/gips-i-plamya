@@ -1,0 +1,11 @@
+---
+import { config, href } from "../config";
+
+const year = new Date().getFullYear();
+---
+
+<footer class="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3 border-t border-ink/12 py-8 text-[0.98rem]">
+  <p>{config.name}</p>
+  <a class="quiet-link" href={href("/katalog")}>Изделия</a>
+  <p>{year}</p>
+</footer>

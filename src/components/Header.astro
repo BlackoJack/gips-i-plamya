@@ -1,0 +1,20 @@
+---
+import { config, href, telegramHref } from "../config";
+import Flame from "./Flame.astro";
+
+const telegram = telegramHref();
+---
+
+<header class="wrap flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+  <a href={href("/")} class="inline-flex items-center gap-2 font-display text-[1.65rem] leading-none font-medium text-ink">
+    <Flame class="h-7 w-5 text-flame" />
+    <span>Гипс <span class="italic">и</span> пламя</span>
+  </a>
+  <nav class="flex items-center gap-5 text-[0.98rem]" aria-label="Разделы">
+    <a class="nav-link" href={href("/katalog")}>Изделия</a>
+    <a class="nav-link" href={href("/#o-masterskoy")}>О мастерской</a>
+    {telegram && (
+      <a class="nav-link" href={telegram}>Написать</a>
+    )}
+  </nav>
+</header>

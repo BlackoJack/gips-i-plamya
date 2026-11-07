@@ -1,0 +1,99 @@
+---
+import { getImage } from "astro:assets";
+import { render } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import Gallery from "../../components/Gallery.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { config, href, money, orderText, telegramHref } from "../../config";
+import { content } from "../../data/content";
+import { categoryById } from "../../data/categories";
+import { getPublished, imagesOf, type Product } from "../../lib/products";
+
+export async function getStaticPaths() {
+  const products = await getPublished();
+  return products.map((product) => ({
+    params: { slug: product.id },
+    props: { product },
+  }));
+}
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+const category = categoryById(product.data.category);
+const images = imagesOf(product);
+const { Content } = await render(product);
+const priceLabel = product.data.price === null ? null : money(product.data.price);
+const pageUrl = new URL(Astro.url.pathname, Astro.site ?? config.siteUrl).toString();
+const telegram = telegramHref(
+  orderText(product.data.title, priceLabel, pageUrl),
+);
+const others = (await getPublished()).filter(
+  (item) => item.data.category === product.data.category && item.id !== product.id,
+);
+const related = others.length >= 2 ? others.slice(0, 3) : [];
+const cover = await getImage({ src: images[0], width: 1200, height: 630, format: "jpg", quality: 76 });
+const description = product.data.summary.slice(0, 155);
+const productLd: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: product.data.title,
+  description: product.data.summary,
+  image: images.map((image) => new URL(image.src, Astro.site ?? config.siteUrl).toString()),
+  brand: { "@type": "Brand", name: config.name },
+};
+if (product.data.price !== null) {
+  productLd.offers = {
+    "@type": "Offer",
+    priceCurrency: "RUB",
+    price: product.data.price,
+    url: pageUrl,
+  };
+}
+---
+
+<Base title={`${product.data.title} — ${config.name}`} description={description} ogImage={cover.src} jsonLd={productLd}>
+  <article class="wrap pt-4 pb-20 md:pt-8 md:pb-28">
+    <div class="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">
+      <Gallery images={images} title={product.data.title} />
+      <div>
+        {
+          category && (
+            <a class="quiet-link text-quiet" href={href(`/katalog/${category.slug}`)}>
+              {category.title}
+            </a>
+          )
+        }
+        <h1 class="mt-3 font-display text-[clamp(40px,5vw,68px)] leading-[0.95]">{product.data.title}</h1>
+        <p class="mt-4 text-xl">{priceLabel ?? content.product.priceLater}</p>
+        <div class="product-text mt-6 max-w-prose">
+          <Content />
+        </div>
+        {
+          telegram ? (
+            <a class="btn btn-ink mt-8" href={telegram}>{content.product.want}</a>
+          ) : (
+            <p class="mt-8 max-w-sm text-quiet">{content.product.missingTelegram}</p>
+          )
+        }
+      </div>
+    </div>
+
+    {
+      related.length > 0 && (
+        <section class="mt-20">
+          <h2 class="font-display text-[clamp(32px,4vw,48px)] leading-none">{content.product.more}</h2>
+          <ul class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map((item) => (
+              <li>
+                <ProductCard product={item} level="h3" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </article>
+</Base>
