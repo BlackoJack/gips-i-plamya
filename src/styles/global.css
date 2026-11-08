@@ -244,12 +244,15 @@ footer .contact-row {
   color: var(--color-flame);
 }
 
+#order-form {
+  width: min(100%, 42rem);
+}
+
 .cart-line {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.85rem 1.5rem;
+  gap: 0.75rem 1.25rem;
   border-top: 1px solid rgba(34, 19, 9, 0.12);
   padding: 1rem 0;
 }
@@ -266,6 +269,7 @@ footer .contact-row {
 
 .cart-title {
   display: block;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: 1.7rem;
   line-height: 1;
@@ -280,6 +284,7 @@ footer .contact-row {
 .cart-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 1rem;
 }
 
@@ -310,14 +315,59 @@ footer .contact-row {
 }
 
 @media (min-width: 640px) {
+  .cart-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .cart-product {
-    grid-template-columns: 88px max-content;
+    grid-template-columns: 88px minmax(0, 1fr);
   }
 
   .cart-photo {
     width: 88px;
     height: 110px;
   }
+
+  .cart-actions {
+    justify-content: flex-end;
+  }
+}
+
+.review-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.review-card {
+  border-top: 1px solid rgba(34, 19, 9, 0.12);
+  padding-top: 1rem;
+}
+
+.review-stars {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.review-stars button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: rgba(34, 19, 9, 0.28);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-stars button[aria-checked="true"],
+.review-stars button.is-on {
+  color: var(--color-flame);
+}
+
+.review-reply {
+  margin-top: 0.75rem;
+  max-width: 36rem;
+  color: var(--color-quiet);
 }
 
 .photo-feather {

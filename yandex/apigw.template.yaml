@@ -54,6 +54,57 @@ paths:
         service_account_id: __SA_ID__
         context:
           route: order
+  /api/guard:
+    get:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: guard
+    options:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: guard
+  /api/review:
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: review
+    options:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: review
+  /api/reviews:
+    get:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: review
+    options:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: __FUNCTION_ID__
+        tag: "$latest"
+        service_account_id: __SA_ID__
+        context:
+          route: review
   /admin:
     get:
       x-yc-apigateway-integration:

@@ -14,7 +14,10 @@ const {
   passwordOk,
   presignPut,
   cleanTelegram,
+  issueGuard,
 } = require("./index.js");
+
+process.env.GUARD_MIN_MS = "0";
 
 const repo = path.resolve(__dirname, "../..");
 
@@ -305,6 +308,7 @@ test("заказ получает номер и остаётся в админк
       name: "Анна",
       contact: "+7 913 000-00-00",
       note: "Самовывоз",
+      guard: issueGuard(),
       items: [{ id: "vaza-12", qty: 2 }],
     });
     assert.equal(ordered.statusCode, 200, ordered.body);
@@ -476,6 +480,7 @@ test("окно даёт скидку на сервере и не публику�
           contact: "+7 913 000-00-00",
           note: "",
           offer: "vesna",
+          guard: issueGuard(),
           items: [{ id: "vaza-12", qty: 2 }],
         })
       ).body,
@@ -490,6 +495,7 @@ test("окно даёт скидку на сервере и не публику�
           contact: "+7 913 000-00-00",
           note: "",
           offer: { code: "VESNA", value: 90 },
+          guard: issueGuard(),
           items: [{ id: "vaza-12", qty: 1 }],
         })
       ).body,
@@ -527,6 +533,7 @@ test("окно даёт скидку на сервере и не публику�
           contact: "+7 913 000-00-00",
           note: "",
           offer: "gift",
+          guard: issueGuard(),
           items: [{ id: "vaza-12", qty: 1 }],
         })
       ).body,
@@ -641,6 +648,7 @@ test("один контакт не получает бонус окна втор
         contact,
         note: "",
         offer,
+        guard: issueGuard(),
         items: [{ id: "vaza-12", qty: 1 }],
       });
     const first = JSON.parse((await order("+7 913 000-00-00", "vesna")).body);
@@ -676,6 +684,121 @@ test("один контакт не получает бонус окна втор
       ADMIN_PASSWORD: previous.password,
       DATA_BUCKET: previous.data,
       SITE_BUCKET: previous.site,
+    })) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test("отзыв публикуется только после проверки, чужой жетон не проходит", async () => {
+  const previous = {
+    root: process.env.LOCAL_ROOT,
+    password: process.env.ADMIN_PASSWORD,
+    data: process.env.DATA_BUCKET,
+    site: process.env.SITE_BUCKET,
+    guard: process.env.GUARD_MIN_MS,
+  };
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "gips-review-"));
+  process.env.LOCAL_ROOT = folder;
+  process.env.ADMIN_PASSWORD = "test-password-1";
+  process.env.DATA_BUCKET = "data";
+  process.env.SITE_BUCKET = "site";
+  process.env.GUARD_MIN_MS = "0";
+  try {
+    const call = (method, route, body, password) =>
+      handler({
+        httpMethod: method,
+        headers: password ? { "x-admin-password": password } : {},
+        body: body ? JSON.stringify(body) : "",
+        path: `/api/${route}`,
+        requestContext: { apiGateway: { operationContext: { route } } },
+      });
+    const review = (extra = {}) =>
+      call("POST", "review", {
+        name: "Мария",
+        text: "Свеча горит ровно и пахнет теплом.",
+        rating: 5,
+        guard: issueGuard(),
+        ...extra,
+      });
+
+    const bare = await call("POST", "order", {
+      name: "Анна",
+      contact: "+7 913 000-00-00",
+      note: "",
+      items: [{ id: "vaza-12", qty: 1 }],
+    });
+    assert.equal(bare.statusCode, 422);
+    assert.equal(JSON.parse(bare.body).error, "guard");
+
+    const stale = await review({ guard: issueGuard(Date.now() - 3 * 60 * 60 * 1000) });
+    assert.equal(JSON.parse(stale.body).error, "guard");
+
+    process.env.GUARD_MIN_MS = "4000";
+    const early = await review();
+    assert.equal(early.statusCode, 422);
+    assert.equal(JSON.parse(early.body).error, "wait");
+    process.env.GUARD_MIN_MS = "0";
+
+    const trap = await review({ company: "acme" });
+    assert.equal(trap.statusCode, 200);
+    assert.equal(JSON.parse((await call("GET", "review")).body).count, 0);
+
+    const token = issueGuard();
+    const sent = await review({ guard: token });
+    assert.equal(sent.statusCode, 200, sent.body);
+    const replay = await review({ guard: token });
+    assert.equal(JSON.parse(replay.body).error, "guard");
+    const queued = JSON.parse((await call("POST", "admin", { action: "reviews" }, "test-password-1")).body);
+    assert.equal(queued.reviews.length, 1);
+    assert.equal(queued.reviews[0].status, "pending");
+    assert.equal(JSON.parse((await call("GET", "review")).body).count, 0);
+
+    assert.equal((await review()).statusCode, 200);
+    assert.equal((await review()).statusCode, 200);
+    const busy = await review();
+    assert.equal(busy.statusCode, 429);
+    assert.equal(JSON.parse(busy.body).error, "busy");
+
+    const published = await call(
+      "POST",
+      "admin",
+      {
+        action: "update-review",
+        key: queued.reviews[0].key,
+        status: "published",
+        reply: "Спасибо, нам очень приятно.",
+      },
+      "test-password-1",
+    );
+    assert.equal(published.statusCode, 200, published.body);
+    const visible = JSON.parse((await call("GET", "review")).body);
+    assert.equal(visible.count, 1);
+    assert.equal(visible.average, 5);
+    assert.equal(visible.reviews[0].name, "Мария");
+    assert.equal(visible.reviews[0].reply, "Спасибо, нам очень приятно.");
+    assert.equal(visible.reviews[0].status, undefined);
+
+    const removed = await call(
+      "POST",
+      "admin",
+      { action: "delete-review", key: queued.reviews[0].key },
+      "test-password-1",
+    );
+    assert.equal(removed.statusCode, 200, removed.body);
+    assert.equal(JSON.parse((await call("GET", "review")).body).count, 0);
+    const left = JSON.parse((await call("POST", "admin", { action: "reviews" }, "test-password-1")).body);
+    assert.equal(left.reviews.length, 2);
+    assert.equal(left.reviews.every((item) => item.status === "pending"), true);
+  } finally {
+    for (const [key, value] of Object.entries({
+      LOCAL_ROOT: previous.root,
+      ADMIN_PASSWORD: previous.password,
+      DATA_BUCKET: previous.data,
+      SITE_BUCKET: previous.site,
+      GUARD_MIN_MS: previous.guard,
     })) {
       if (value == null) delete process.env[key];
       else process.env[key] = value;

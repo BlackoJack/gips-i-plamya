@@ -113,7 +113,11 @@ const server = http.createServer(async (req, res) => {
         ? "admin"
         : url.pathname.startsWith("/api/order")
           ? "order"
-          : "";
+          : url.pathname.startsWith("/api/guard")
+            ? "guard"
+            : url.pathname.startsWith("/api/review")
+              ? "review"
+              : "";
     const body = await readBody(req, 1_000_000);
     const result = await handler({
       httpMethod: req.method,

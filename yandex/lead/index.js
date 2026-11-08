@@ -91,6 +91,8 @@ function routeOf(event) {
   if (pathName.includes("/api/content")) return "content";
   if (pathName.includes("/api/admin")) return "admin";
   if (pathName.includes("/api/order")) return "order";
+  if (pathName.includes("/api/guard")) return "guard";
+  if (pathName.includes("/api/review")) return "review";
   return "";
 }
 
@@ -1305,12 +1307,271 @@ async function listOrders() {
   return rows.filter(Boolean);
 }
 
+const GUARD_MAX_MS = 2 * 60 * 60 * 1000;
+const HITS_KEY = "guard/hits.json";
+
+function guardSecret() {
+  return crypto.createHash("sha256").update(`gips-guard:${process.env.ADMIN_PASSWORD || "local"}`).digest();
+}
+
+function guardMinMs() {
+  const raw = Number(process.env.GUARD_MIN_MS);
+  if (Number.isInteger(raw) && raw >= 0 && raw <= 60000) return raw;
+  return 4000;
+}
+
+function issueGuard(at = Date.now()) {
+  const nonce = crypto.randomBytes(9).toString("base64url");
+  const payload = `${at}.${nonce}`;
+  const sig = crypto.createHmac("sha256", guardSecret()).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+function parseGuard(token) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3) return { id: "" };
+  const [atRaw, nonce, sig] = parts;
+  if (!/^\d{10,16}$/.test(atRaw) || !/^[A-Za-z0-9_-]{8,24}$/.test(nonce) || !/^[A-Za-z0-9_-]{20,80}$/.test(sig)) return { id: "" };
+  const payload = `${atRaw}.${nonce}`;
+  const expected = crypto.createHmac("sha256", guardSecret()).update(payload).digest("base64url");
+  const left = Buffer.from(sig);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) return { id: "" };
+  const age = Date.now() - Number(atRaw);
+  if (age < 0 || age > GUARD_MAX_MS) return { id: "" };
+  if (age < guardMinMs()) return { wait: true, id: "" };
+  return { id: payload };
+}
+
+function clientMark(event) {
+  const forwarded = header(event, "x-forwarded-for").split(",")[0].trim();
+  const ip = forwarded || header(event, "x-real-ip") || "none";
+  return crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
+
+function whoKey(contact) {
+  const keys = contactKeys(contact);
+  return keys.find((key) => key.startsWith("tel:")) || keys.find((key) => key.startsWith("mail:")) || keys.find((key) => key.startsWith("tg:")) || keys[0] || "";
+}
+
+async function readHits() {
+  const stored = await s3(dataBucket(), "GET", HITS_KEY);
+  if (stored.status === 404) return [];
+  if (!stored.ok) return null;
+  try {
+    const parsed = JSON.parse(stored.text);
+    return Array.isArray(parsed.hits) ? parsed.hits : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeHits(hits) {
+  const day = Date.now() - 24 * 60 * 60 * 1000;
+  const fresh = hits.filter((hit) => hit && typeof hit.at === "number" && hit.at > day).slice(-400);
+  return s3(dataBucket(), "PUT", HITS_KEY, {
+    body: `${JSON.stringify({ hits: fresh })}\n`,
+    contentType: "application/json",
+  });
+}
+
+function tooBusy(hits, kind, ip, who) {
+  const hour = Date.now() - 60 * 60 * 1000;
+  const day = Date.now() - 24 * 60 * 60 * 1000;
+  if (kind === "order") {
+    if (hits.filter((hit) => hit.kind === "order" && hit.ip === ip && hit.at > hour).length >= 8) return true;
+    if (who && hits.filter((hit) => hit.kind === "order" && hit.who === who && hit.at > day).length >= 4) return true;
+  }
+  if (kind === "review" && hits.filter((hit) => hit.kind === "review" && hit.ip === ip && hit.at > day).length >= 3) return true;
+  return false;
+}
+
+async function claimGate(event, guard, kind, who) {
+  const hits = await readHits();
+  const list = Array.isArray(hits) ? hits : [];
+  if (hits && list.some((hit) => hit.token === guard.id)) return { error: "guard" };
+  if (hits && tooBusy(list, kind, clientMark(event), who)) return { error: "busy" };
+  return { id: guard.id, ip: clientMark(event), who: who || "", hits: list };
+}
+
+async function rememberGate(gate, kind) {
+  if (!gate?.id) return;
+  const hits = Array.isArray(gate.hits) ? gate.hits.slice() : [];
+  hits.push({ at: Date.now(), kind, ip: gate.ip, who: gate.who || "", token: gate.id });
+  try {
+    await writeHits(hits);
+  } catch {
+    /* лимит не должен терять уже сохранённую запись */
+  }
+}
+
+function reviewKeyOk(key) {
+  return typeof key === "string" && /^reviews\/[1-9][0-9]{3,5}\.json$/.test(key);
+}
+
+function listReviewKeys(xml) {
+  const keys = [];
+  const pattern = /<Key>([^<]+)<\/Key>/g;
+  let match = pattern.exec(xml);
+  while (match) {
+    const key = match[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    if (reviewKeyOk(key)) keys.push(key);
+    match = pattern.exec(xml);
+  }
+  return keys;
+}
+
+async function reviewKeys() {
+  if (process.env.LOCAL_ROOT) {
+    const dir = localFile("reviews");
+    if (!dir || !fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .map((name) => `reviews/${name}`)
+      .filter(reviewKeyOk);
+  }
+  const listed = await s3(dataBucket(), "GET", "", { query: { "list-type": "2", prefix: "reviews/" } });
+  if (!listed.ok) return null;
+  return listReviewKeys(listed.text);
+}
+
+async function takeReviewNumber() {
+  const key = "reviews/sequence.json";
+  const stored = await s3(dataBucket(), "GET", key);
+  let current = 1000;
+  if (stored.ok) {
+    try {
+      const parsed = JSON.parse(stored.text);
+      if (Number.isInteger(parsed.n) && parsed.n >= 1000 && parsed.n < 999999) current = parsed.n;
+    } catch {
+      current = 1000;
+    }
+  }
+  const n = current + 1;
+  const written = await s3(dataBucket(), "PUT", key, {
+    body: `${JSON.stringify({ n })}\n`,
+    contentType: "application/json",
+  });
+  return written.ok ? n : 0;
+}
+
+function publicReview(data) {
+  return {
+    name: String(data.name || ""),
+    text: String(data.text || ""),
+    rating: Number.isInteger(data.rating) ? data.rating : 0,
+    reply: String(data.reply || ""),
+    at: String(data.at || ""),
+  };
+}
+
+function adminReview(data, key) {
+  return {
+    key,
+    ...publicReview(data),
+    status: data.status === "published" ? "published" : "pending",
+  };
+}
+
+function reviewText(review) {
+  return [`Отзыв на проверке`, "", `${review.name}, ${review.rating} из 5`, "", review.text].join("\n");
+}
+
+async function deliverReview(review) {
+  const notify = await readNotify();
+  const text = reviewText(review);
+  const mailConfigured = Boolean(notify?.smtpPassword && notify.smtpUser && notify.mailTo);
+  const telegramConfigured = Boolean(notify?.telegramToken && notify.telegramChatId);
+  const mail = mailConfigured
+    ? withTimeout(
+        sendSmtp({
+          host: notify.smtpHost,
+          port: 465,
+          user: notify.smtpUser,
+          password: notify.smtpPassword,
+          to: notify.mailTo,
+          subject: "Отзыв на проверке",
+          text,
+        }).then(() => true),
+        9000,
+      )
+    : Promise.resolve(false);
+  const telegram = telegramConfigured
+    ? withTimeout(sendTelegram(notify.telegramToken, notify.telegramChatId, text), 4000)
+    : Promise.resolve(false);
+  await Promise.all([mail, telegram]);
+}
+
+async function listPublicReviews() {
+  const keys = await reviewKeys();
+  if (!keys) return json(502, { ok: false, error: "content_unavailable" });
+  const rows = [];
+  for (const key of keys) {
+    const object = await s3(dataBucket(), "GET", key);
+    if (!object.ok) continue;
+    try {
+      const data = JSON.parse(object.text);
+      if (data.status === "published") rows.push(publicReview(data));
+    } catch {
+      /* пропускаем битую карточку */
+    }
+  }
+  rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const ratings = rows.map((row) => row.rating).filter((rating) => rating >= 1 && rating <= 5);
+  const average = ratings.length ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10 : null;
+  return json(200, { ok: true, reviews: rows.slice(0, 40), average, count: rows.length });
+}
+
+async function handleGuard(method) {
+  if (method === "OPTIONS") return empty(204);
+  if (method !== "GET") return json(405, { ok: false, error: "method_not_allowed" });
+  return json(200, { ok: true, token: issueGuard() });
+}
+
+async function handleReview(event, method) {
+  if (method === "OPTIONS") return empty(204);
+  if (method === "GET") return listPublicReviews();
+  if (method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
+  const body = readPayload(event);
+  if (body.error === "bad_json") return json(400, { ok: false, error: "bad_json" });
+  if (typeof body.company === "string" && body.company.trim() !== "") return json(200, { ok: true });
+  const guard = parseGuard(body.guard);
+  if (guard.wait) return json(422, { ok: false, error: "wait" });
+  if (!guard.id) return json(422, { ok: false, error: "guard" });
+  const name = cleanRequired(body.name, 40);
+  const text = cleanBody(body.text, 800);
+  const rating = Number(body.rating);
+  if (!name || name.length < 2 || text == null || text.length < 10 || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return json(422, { ok: false, error: "validation" });
+  }
+  const gate = await claimGate(event, guard, "review", "");
+  if (gate.error) return json(gate.error === "busy" ? 429 : 422, { ok: false, error: gate.error });
+  const n = await takeReviewNumber();
+  if (!n) return json(502, { ok: false, error: "save_failed" });
+  const record = { n, name, text, rating, status: "pending", reply: "", at: new Date().toISOString() };
+  const saved = await s3(dataBucket(), "PUT", `reviews/${n}.json`, {
+    body: `${JSON.stringify(record, null, 2)}\n`,
+    contentType: "application/json",
+  });
+  if (!saved.ok) return json(502, { ok: false, error: "save_failed" });
+  await rememberGate(gate, "review");
+  try {
+    await deliverReview(record);
+  } catch {
+    /* отзыв уже сохранён */
+  }
+  return json(200, { ok: true });
+}
+
 async function handleOrder(event, method) {
   if (method === "OPTIONS") return empty(204);
   if (method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
   const body = readPayload(event);
   if (body.error === "bad_json") return json(400, { ok: false, error: "bad_json" });
   if (typeof body.company === "string" && body.company.trim() !== "") return json(200, { ok: true });
+  const guard = parseGuard(body.guard);
+  if (guard.wait) return json(422, { ok: false, error: "wait" });
+  if (!guard.id) return json(422, { ok: false, error: "guard" });
   const name = cleanRequired(body.name, 80);
   const contact = cleanRequired(body.contact, 120);
   const note = cleanBody(body.note || "", 1000);
@@ -1335,6 +1596,8 @@ async function handleOrder(event, method) {
     if (used == null) return json(502, { ok: false, error: "offer_check" });
     if (used) return json(422, { ok: false, error: "offer_used" });
   }
+  const gate = await claimGate(event, guard, "order", whoKey(contact));
+  if (gate.error) return json(gate.error === "busy" ? 429 : 422, { ok: false, error: gate.error });
   const n = await takeOrderNumber();
   if (!n) return json(502, { ok: false, error: "save_failed" });
   const number = `ГП-${n}`;
@@ -1356,6 +1619,7 @@ async function handleOrder(event, method) {
     contentType: "application/json",
   });
   if (!saved.ok) return json(502, { ok: false, error: "save_failed" });
+  await rememberGate(gate, "order");
   let delivery = { mail: false, telegram: false, mailConfigured: false, telegramConfigured: false };
   try {
     delivery = await deliverOrder(record);
@@ -1586,6 +1850,52 @@ async function handleAdmin(event, method) {
     return json(200, { ok: true });
   }
 
+  if (action === "reviews") {
+    const keys = await reviewKeys();
+    if (!keys) return json(502, { ok: false, error: "content_unavailable" });
+    const newest = keys.sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, ""))).slice(0, 100);
+    const rows = [];
+    for (const key of newest) {
+      const object = await s3(dataBucket(), "GET", key);
+      if (!object.ok) continue;
+      try {
+        rows.push(adminReview(JSON.parse(object.text), key));
+      } catch {
+        /* пропускаем битую карточку */
+      }
+    }
+    return json(200, { ok: true, reviews: rows });
+  }
+
+  if (action === "update-review") {
+    if (!reviewKeyOk(body.key)) return json(422, { ok: false, error: "validation" });
+    const stored = await s3(dataBucket(), "GET", body.key);
+    if (stored.status === 404) return json(422, { ok: false, error: "validation" });
+    if (!stored.ok) return json(502, { ok: false, error: "save_failed" });
+    let data;
+    try {
+      data = JSON.parse(stored.text);
+    } catch {
+      return json(422, { ok: false, error: "validation" });
+    }
+    const reply = cleanBody(body.reply ?? "", 800);
+    if (reply == null || (body.status !== "published" && body.status !== "pending")) return json(422, { ok: false, error: "validation" });
+    const next = { ...data, status: body.status, reply };
+    const written = await s3(dataBucket(), "PUT", body.key, {
+      body: `${JSON.stringify(next, null, 2)}\n`,
+      contentType: "application/json",
+    });
+    if (!written.ok) return json(502, { ok: false, error: "save_failed" });
+    return json(200, { ok: true, review: adminReview(next, body.key) });
+  }
+
+  if (action === "delete-review") {
+    if (!reviewKeyOk(body.key)) return json(422, { ok: false, error: "validation" });
+    const removed = await s3(dataBucket(), "DELETE", body.key);
+    if (!removed.ok && removed.status !== 404) return json(502, { ok: false, error: "save_failed" });
+    return json(200, { ok: true });
+  }
+
   return json(422, { ok: false, error: "validation" });
 }
 
@@ -1595,6 +1905,8 @@ module.exports.handler = async function handler(event) {
   if (route === "content") return handleContent(method);
   if (route === "admin") return handleAdmin(event, method);
   if (route === "order") return handleOrder(event, method);
+  if (route === "guard") return handleGuard(method);
+  if (route === "review") return handleReview(event, method);
   return json(404, { ok: false, error: "not_found" });
 };
 
@@ -1606,3 +1918,4 @@ module.exports.imageKeyOk = imageKeyOk;
 module.exports.passwordOk = passwordOk;
 module.exports.presignPut = presignPut;
 module.exports.cleanTelegram = cleanTelegram;
+module.exports.issueGuard = issueGuard;

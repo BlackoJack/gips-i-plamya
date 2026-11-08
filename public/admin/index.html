@@ -25,6 +25,7 @@
         --quiet: #4e4036;
       }
       * { box-sizing: border-box; }
+      html, body { max-width: 100%; overflow-x: clip; }
       body {
         margin: 0;
         background: var(--paper);
@@ -41,7 +42,7 @@
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
       }
       html { scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
-      main { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 28px 16px 80px; }
+      main { position: relative; z-index: 1; max-width: 920px; min-width: 0; margin: 0 auto; padding: 28px 16px 80px; }
       body.has-dock main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
       button, a, input, textarea, select, .pager, .order { scroll-margin-bottom: 160px; }
       .mark {
@@ -311,8 +312,9 @@
         padding: 12px 14px;
         border-radius: 2px;
       }
-      button.popup-strip span:first-child { min-width: 0; flex: 1; display: block; }
-      button.popup-strip .quiet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      button.popup-strip, button.product-strip, button.order-strip, button.fold-strip { min-width: 0; max-width: 100%; }
+      button.popup-strip span:first-child { min-width: 0; flex: 1; display: block; overflow-wrap: anywhere; }
+      button.popup-strip .quiet { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       button.product-strip[aria-expanded="true"], button.fold-strip[aria-expanded="true"], button.popup-strip[aria-expanded="true"] {
         border-color: var(--ink);
         border-bottom-left-radius: 0;
@@ -340,6 +342,7 @@
       .sheet strong {
         display: block;
         margin-top: 8px;
+        overflow-wrap: anywhere;
         font-family: Palatino, "Palatino Linotype", Georgia, serif;
         font-size: 32px;
         font-weight: 560;
@@ -386,6 +389,10 @@
         white-space: nowrap;
       }
       @media (max-width: 640px) {
+        button.popup-strip { flex-wrap: wrap; align-items: flex-start; }
+        button.popup-strip .quiet, .product-strip .quiet { white-space: normal; overflow: visible; text-overflow: clip; }
+        .order-add-row select { min-width: 0; }
+        .sheet strong { font-size: 26px; }
         .dock { flex-wrap: wrap; }
         .dock-status { flex-basis: 100%; }
         .dock-actions { width: 100%; }
@@ -412,6 +419,7 @@
           <button type="button" data-tab="orders" aria-current="page">Заказы</button>
           <button type="button" data-tab="products">Изделия</button>
           <button type="button" data-tab="popups">Окна</button>
+          <button type="button" data-tab="reviews">Отзывы</button>
           <button type="button" data-tab="site">Мастерская</button>
         </nav>
         <section class="card" data-panel="orders">
@@ -556,6 +564,11 @@
             </div>
             <p id="popup-status" class="status" role="status"></p>
           </form>
+        </section>
+        <section class="card hidden" data-panel="reviews">
+          <h2>Отзывы</h2>
+          <p class="note">Новый отзыв сначала на проверке. На сайте видны только опубликованные. Ответ можно написать сразу, он появится под текстом гостя.</p>
+          <div id="reviews"></div>
         </section>
         <div id="dock" class="dock">
           <p id="dock-status" class="dock-status" role="status"></p>
@@ -1267,6 +1280,9 @@
           panel.classList.toggle("hidden", panel.dataset.panel !== name);
         }
         syncDock();
+        if (name === "reviews") refreshReviews().catch((error) => {
+          document.getElementById("reviews").textContent = message(error);
+        });
       }
 
       function syncDock() {
@@ -1274,7 +1290,11 @@
         const popupOpen = currentPanel === "popups" && !popupForm.classList.contains("hidden");
         const productOpen = currentPanel === "products" && !productForm.classList.contains("hidden");
         const orderOpen = currentPanel === "orders" && Boolean(ordersBox.querySelector("[data-order-save]"));
-        if (popupOpen) {
+        const reviewOpen = currentPanel === "reviews" && Boolean(document.getElementById("reviews")?.querySelector("form"));
+        if (reviewOpen) {
+          save.textContent = "Сохранить отзыв";
+          save.dataset.mode = "review";
+        } else if (popupOpen) {
           save.textContent = "Сохранить окно";
           save.dataset.mode = "popup";
         } else if (productOpen) {
@@ -1734,6 +1754,118 @@
         renderOrders(listed.orders || []);
       }
 
+      const reviewsBox = document.getElementById("reviews");
+      let reviewRows = [];
+      let openReviewKey = "";
+
+      function reviewStars(value) {
+        const count = Number(value) || 0;
+        return `${"★".repeat(count)}${"☆".repeat(Math.max(0, 5 - count))}`;
+      }
+
+      function renderReviews() {
+        reviewsBox.replaceChildren();
+        if (!reviewRows.length) {
+          const empty = document.createElement("p");
+          empty.className = "note";
+          empty.textContent = "Пока нет отзывов.";
+          reviewsBox.append(empty);
+          syncDock();
+          return;
+        }
+        for (const review of reviewRows) {
+          const block = document.createElement("div");
+          block.className = "order-block";
+          const strip = document.createElement("button");
+          strip.type = "button";
+          strip.className = "popup-strip";
+          strip.setAttribute("aria-expanded", openReviewKey === review.key ? "true" : "false");
+          const title = document.createElement("span");
+          title.textContent = `${review.name}  ${reviewStars(review.rating)}`;
+          const badge = document.createElement("span");
+          badge.className = "quiet";
+          badge.textContent = review.status === "published" ? "на сайте" : "на проверке";
+          strip.append(title, badge);
+          strip.addEventListener("click", () => {
+            openReviewKey = openReviewKey === review.key ? "" : review.key;
+            renderReviews();
+          });
+          block.append(strip);
+          if (openReviewKey === review.key) {
+            const form = document.createElement("form");
+            form.className = "order";
+            const text = document.createElement("p");
+            text.textContent = review.text;
+            const label = document.createElement("label");
+            label.append("Ответ мастерской");
+            const area = document.createElement("textarea");
+            area.maxLength = 800;
+            area.value = review.reply || "";
+            label.append(area);
+            const row = document.createElement("div");
+            row.className = "row";
+            const publish = document.createElement("button");
+            publish.type = "submit";
+            publish.textContent = review.status === "published" ? "Сохранить ответ" : "Опубликовать";
+            const hide = document.createElement("button");
+            hide.type = "button";
+            hide.className = "ghost";
+            hide.textContent = "Снять с сайта";
+            hide.hidden = review.status !== "published";
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "ghost";
+            remove.textContent = "Удалить";
+            const state = document.createElement("p");
+            state.className = "status";
+            state.setAttribute("role", "status");
+            row.append(publish, hide, remove);
+            form.append(text, label, row, state);
+            form.addEventListener("submit", async (event) => {
+              event.preventDefault();
+              state.textContent = "Сохраняю…";
+              try {
+                await admin("update-review", { key: review.key, status: "published", reply: area.value });
+                openReviewKey = review.key;
+                await refreshReviews();
+                document.getElementById("dock-status").textContent = "Отзыв на сайте.";
+              } catch (error) {
+                state.textContent = message(error);
+              }
+            });
+            hide.addEventListener("click", async () => {
+              try {
+                await admin("update-review", { key: review.key, status: "pending", reply: area.value });
+                await refreshReviews();
+                document.getElementById("dock-status").textContent = "Отзыв снят с сайта.";
+              } catch (error) {
+                state.textContent = message(error);
+              }
+            });
+            remove.addEventListener("click", async () => {
+              if (!window.confirm("Удалить отзыв?")) return;
+              try {
+                await admin("delete-review", { key: review.key });
+                openReviewKey = "";
+                await refreshReviews();
+                document.getElementById("dock-status").textContent = "Отзыв удалён.";
+              } catch (error) {
+                state.textContent = message(error);
+              }
+            });
+            block.append(form);
+          }
+          reviewsBox.append(block);
+        }
+        syncDock();
+      }
+
+      async function refreshReviews() {
+        const listed = await admin("reviews");
+        reviewRows = listed.reviews || [];
+        renderReviews();
+      }
+
       async function openDesk() {
         const loaded = await admin("load");
         content = loaded.content;
@@ -2062,6 +2194,7 @@
         if (mode === "popup") popupForm.requestSubmit();
         else if (mode === "product") productForm.requestSubmit();
         else if (mode === "order") ordersBox.querySelector("[data-order-save]")?.click();
+        else if (mode === "review") reviewsBox.querySelector("form")?.requestSubmit();
         else siteForm.requestSubmit();
       });
 

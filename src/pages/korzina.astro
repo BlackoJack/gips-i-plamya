@@ -49,6 +49,16 @@ const root = href("/").replace(/\/$/, "");
   <script>
     const cartKey = "gips-cart";
     const form = document.getElementById("order-form");
+    let guardToken = "";
+    async function takeGuard() {
+      try {
+        const response = await fetch("/api/guard");
+        const data = await response.json();
+        guardToken = typeof data.token === "string" ? data.token : "";
+      } catch {
+        guardToken = "";
+      }
+    }
     const empty = document.querySelector("[data-cart-empty]");
     const lines = document.querySelector("[data-cart-lines]");
     const offerNode = document.querySelector("[data-cart-offer]");
@@ -106,6 +116,7 @@ const root = href("/").replace(/\/$/, "");
       }
       empty.hidden = true;
       form.hidden = false;
+      if (!guardToken) takeGuard();
       let known = 0;
       let later = false;
       lines.innerHTML = cart
@@ -218,6 +229,7 @@ const root = href("/").replace(/\/$/, "");
             contact: String(data.get("contact") || ""),
             note: String(data.get("note") || ""),
             company: String(data.get("company") || ""),
+            guard: guardToken,
             offer: readOfferCode(),
             items: cart.map((row) => ({ id: row.id, qty: row.qty })),
           }),
@@ -230,12 +242,20 @@ const root = href("/").replace(/\/$/, "");
             statusNode.textContent = "Эта акция уже была с этим контактом. Заказ без бонуса можно отправить ещё раз.";
             return;
           }
+          if (result.error === "guard") {
+            guardToken = "";
+            takeGuard();
+          }
           statusNode.textContent =
             result.error === "cart_changed"
               ? "Часть изделий уже не на сайте. Обновите корзину."
               : result.error === "offer_check"
                 ? "Не удалось проверить акцию. Попробуйте ещё раз."
-                : "Не получилось. Проверьте имя и контакт.";
+                : result.error === "guard" || result.error === "wait"
+                  ? "Страница открыта слишком недавно или устарела. Подождите пару секунд и отправьте ещё раз."
+                  : result.error === "busy"
+                    ? "С этого контакта уже несколько заказов за сегодня. Напишите нам напрямую."
+                    : "Не получилось. Проверьте имя и контакт.";
           return;
         }
         localStorage.removeItem(cartKey);

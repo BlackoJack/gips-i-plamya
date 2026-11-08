@@ -5,6 +5,7 @@ import Categories from "../components/Categories.astro";
 import Postcard from "../components/Postcard.astro";
 import Order from "../components/Order.astro";
 import About from "../components/About.astro";
+import Reviews from "../components/Reviews.astro";
 import ProductCard from "../components/ProductCard.astro";
 import { content } from "../data/content";
 import { getFeatured } from "../lib/products";
@@ -31,4 +32,5 @@ const featured = await getFeatured();
   <Postcard />
   <Order />
   <About />
+  <Reviews />
 </Base>

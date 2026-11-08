@@ -1,0 +1,155 @@
+<section id="otzyvy" class="wrap rise pb-16 md:pb-24">
+  <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none">Отзывы</h2>
+  <p class="mt-4 max-w-xl text-lg" data-review-summary>Пока здесь тихо. Если изделие уже дома, расскажите, как оно вам.</p>
+  <div class="review-list mt-8" data-review-list></div>
+  <form class="mt-10 grid max-w-2xl gap-5" data-review-form>
+    <label class="grid gap-2">
+      Имя
+      <input class="field" name="name" required minlength="2" maxlength="40" autocomplete="name" />
+    </label>
+    <fieldset class="grid gap-2 border-0 p-0">
+      <legend>Оценка</legend>
+      <div class="review-stars" data-review-stars>
+        <button type="button" data-star="1" role="radio" aria-checked="false">★</button>
+        <button type="button" data-star="2" role="radio" aria-checked="false">★</button>
+        <button type="button" data-star="3" role="radio" aria-checked="false">★</button>
+        <button type="button" data-star="4" role="radio" aria-checked="false">★</button>
+        <button type="button" data-star="5" role="radio" aria-checked="false">★</button>
+      </div>
+    </fieldset>
+    <label class="grid gap-2">
+      Как вам изделие
+      <textarea class="field min-h-28" name="text" required minlength="10" maxlength="800"></textarea>
+    </label>
+    <input class="hidden" name="company" tabindex="-1" autocomplete="off" />
+    <button class="btn btn-ink w-full sm:w-auto" type="submit">Отправить отзыв</button>
+    <p data-review-status role="status"></p>
+  </form>
+</section>
+<script>
+  const form = document.querySelector("[data-review-form]");
+  const list = document.querySelector("[data-review-list]");
+  const summary = document.querySelector("[data-review-summary]");
+  const statusNode = document.querySelector("[data-review-status]");
+  const stars = [...document.querySelectorAll("[data-star]")];
+  let rating = 0;
+  let guardToken = "";
+
+  function paintStars() {
+    for (const star of stars) {
+      const value = Number(star.dataset.star);
+      const on = value <= rating;
+      star.classList.toggle("is-on", on);
+      star.setAttribute("aria-checked", value === rating ? "true" : "false");
+    }
+  }
+
+  async function takeGuard() {
+    try {
+      const response = await fetch("/api/guard");
+      const data = await response.json();
+      guardToken = typeof data.token === "string" ? data.token : "";
+    } catch {
+      guardToken = "";
+    }
+  }
+
+  function starsText(value) {
+    return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
+  }
+
+  async function loadReviews() {
+    if (!(list instanceof HTMLElement) || !(summary instanceof HTMLElement)) return;
+    try {
+      const response = await fetch("/api/reviews");
+      const data = await response.json();
+      const reviews = Array.isArray(data.reviews) ? data.reviews : [];
+      list.replaceChildren();
+      if (!reviews.length) {
+        summary.textContent = "Пока здесь тихо. Если изделие уже дома, расскажите, как оно вам.";
+        return;
+      }
+      const average = typeof data.average === "number" ? String(data.average).replace(".", ",") : "";
+      summary.textContent = average ? `Средняя оценка ${average} из 5` : "Отзывы гостей";
+      for (const review of reviews) {
+        const card = document.createElement("article");
+        card.className = "review-card";
+        const head = document.createElement("p");
+        const name = document.createElement("strong");
+        name.textContent = String(review.name || "");
+        const mark = document.createElement("span");
+        mark.textContent = ` ${starsText(Number(review.rating) || 0)}`;
+        head.append(name, mark);
+        const text = document.createElement("p");
+        text.className = "mt-2 max-w-xl";
+        text.textContent = String(review.text || "");
+        card.append(head, text);
+        if (review.reply) {
+          const reply = document.createElement("p");
+          reply.className = "review-reply";
+          reply.textContent = `Мастерская: ${review.reply}`;
+          card.append(reply);
+        }
+        list.append(card);
+      }
+    } catch {
+      if (summary instanceof HTMLElement) summary.textContent = "Отзывы сейчас не загрузились. Форму ниже можно заполнить.";
+    }
+  }
+
+  for (const star of stars) {
+    star.addEventListener("click", () => {
+      rating = Number(star.dataset.star) || 0;
+      paintStars();
+    });
+  }
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(form instanceof HTMLFormElement) || !(statusNode instanceof HTMLElement)) return;
+    if (rating < 1) {
+      statusNode.textContent = "Поставьте оценку и напишите пару строк.";
+      return;
+    }
+    const data = new FormData(form);
+    statusNode.textContent = "Отправляю…";
+    try {
+      const response = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(data.get("name") || ""),
+          text: String(data.get("text") || ""),
+          rating,
+          company: String(data.get("company") || ""),
+          guard: guardToken,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (result.error === "guard") {
+          guardToken = "";
+          takeGuard();
+        }
+        statusNode.textContent =
+          result.error === "guard" || result.error === "wait"
+            ? "Страница открыта слишком недавно или устарела. Подождите пару секунд и отправьте ещё раз."
+            : result.error === "busy"
+              ? "С этого адреса уже несколько отзывов за сегодня. Напишите нам напрямую."
+              : "Не получилось. Проверьте имя, оценку и текст.";
+        return;
+      }
+      form.reset();
+      rating = 0;
+      paintStars();
+      guardToken = "";
+      takeGuard();
+      statusNode.textContent = "Спасибо. Отзыв появится на сайте после проверки.";
+    } catch {
+      statusNode.textContent = "Нет связи с мастерской. Попробуйте ещё раз.";
+    }
+  });
+
+  takeGuard();
+  loadReviews();
+</script>
