@@ -9,10 +9,10 @@ import Flame from "./Flame.astro";
     <span>Гипс <span class="italic">и</span> пламя</span>
   </a>
   <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.98rem]" aria-label="Разделы">
-    <a class="nav-link inline-flex min-h-11 items-center" href={href("/katalog")}>Изделия</a>
-    <a class="nav-link inline-flex min-h-11 items-center" href={href("/korzina")}>
-      Корзина<span data-cart-count hidden></span>
+    <a class="nav-link inline-flex min-h-11 items-center whitespace-nowrap" href={href("/katalog")}>Изделия</a>
+    <a class="nav-cart inline-flex min-h-11 items-center whitespace-nowrap" href={href("/korzina")}>
+      <span class="nav-link">Корзина</span><span class="cart-count" data-cart-count hidden></span>
     </a>
-    <a class="nav-link inline-flex min-h-11 items-center" href={href("/#o-masterskoy")}>О мастерской</a>
+    <a class="nav-link inline-flex min-h-11 items-center whitespace-nowrap" href={href("/#o-masterskoy")}>О мастерской</a>
   </nav>
 </header>

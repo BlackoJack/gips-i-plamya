@@ -19,6 +19,7 @@ const CONTENT_KEY = "content/site.json";
 const NOTIFY_KEY = "content/notify.json";
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 const IMAGE_PATTERN = /^media\/([a-z0-9][a-z0-9_-]{0,40})\/([a-z0-9][a-z0-9_-]{0,40})\.jpg$/;
+const ORDER_STATUS = new Set(["new", "work", "done", "cancelled"]);
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -636,6 +637,10 @@ async function writeContent(content) {
   return result.ok;
 }
 
+function cleanSmtpPassword(value) {
+  return String(value ?? "").replace(/[\s\u00a0]/g, "");
+}
+
 function sanitizeNotify(input, previous) {
   const prev = previous && typeof previous === "object" ? previous : {};
   const source = input && typeof input === "object" ? input : {};
@@ -648,8 +653,8 @@ function sanitizeNotify(input, previous) {
   if (source.mailTo && !addressOf(source.mailTo)) return null;
   if (source.smtpUser && !addressOf(source.smtpUser)) return null;
   if (source.smtpHost && !hostnameOf(source.smtpHost)) return null;
-  const smtpPassword = String(source.smtpPassword ?? "") || String(prev.smtpPassword ?? "");
-  if (smtpPassword.length > 200 || /[\r\n]/.test(smtpPassword)) return null;
+  const smtpPassword = cleanSmtpPassword(source.smtpPassword) || cleanSmtpPassword(prev.smtpPassword);
+  if (smtpPassword.length > 200) return null;
   const mailTo = addressOf(source.mailTo) || addressOf(prev.mailTo);
   const smtpUser = addressOf(source.smtpUser) || addressOf(prev.smtpUser);
   const smtpHost = hostnameOf(source.smtpHost) || hostnameOf(prev.smtpHost) || "smtp.yandex.ru";
@@ -973,6 +978,8 @@ function publicOrder(data, key) {
     name: String(data.name || ""),
     contact: String(data.contact || ""),
     note: String(data.note || ""),
+    status: ORDER_STATUS.has(data.status) ? data.status : "new",
+    adminNote: String(data.adminNote || "").slice(0, 2000),
     items: Array.isArray(data.items) ? data.items : [],
     total: Number.isInteger(data.total) ? data.total : null,
     at: String(data.at || ""),
@@ -1030,7 +1037,17 @@ async function handleOrder(event, method) {
   const n = await takeOrderNumber();
   if (!n) return json(502, { ok: false, error: "save_failed" });
   const number = `ГП-${n}`;
-  const record = { number, name, contact, note, items, total, at: new Date().toISOString() };
+  const record = {
+    number,
+    name,
+    contact,
+    note,
+    items,
+    total,
+    status: "new",
+    adminNote: "",
+    at: new Date().toISOString(),
+  };
   const key = `orders/${n}.json`;
   const saved = await s3(dataBucket(), "PUT", key, {
     body: `${JSON.stringify(record, null, 2)}\n`,
@@ -1196,6 +1213,27 @@ async function handleAdmin(event, method) {
     const orders = await listOrders();
     if (!orders) return json(502, { ok: false, error: "orders_unavailable" });
     return json(200, { ok: true, orders });
+  }
+
+  if (action === "update-order") {
+    if (!orderKeyOk(body.key) || !ORDER_STATUS.has(body.status)) return json(422, { ok: false, error: "validation" });
+    const adminNote = cleanBody(body.adminNote ?? "", 2000);
+    if (adminNote == null) return json(422, { ok: false, error: "validation" });
+    const stored = await s3(dataBucket(), "GET", body.key);
+    if (!stored.ok) return json(404, { ok: false, error: "not_found" });
+    let data;
+    try {
+      data = JSON.parse(stored.text);
+    } catch {
+      return json(422, { ok: false, error: "validation" });
+    }
+    const next = { ...data, status: body.status, adminNote };
+    const written = await s3(dataBucket(), "PUT", body.key, {
+      body: `${JSON.stringify(next, null, 2)}\n`,
+      contentType: "application/json",
+    });
+    if (!written.ok) return json(502, { ok: false, error: "save_failed" });
+    return json(200, { ok: true, order: publicOrder(next, body.key) });
   }
 
   if (action === "delete-order") {

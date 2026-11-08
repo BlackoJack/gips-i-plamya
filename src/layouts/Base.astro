@@ -95,7 +95,7 @@ const structured = [organization, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd :
       function paintCart() {
         const count = readCart().reduce((sum, item) => sum + item.qty, 0);
         document.querySelectorAll("[data-cart-count]").forEach((node) => {
-          node.textContent = count ? ` ${count}` : "";
+          node.textContent = count ? String(count) : "";
           if (node instanceof HTMLElement) node.hidden = count === 0;
         });
       }

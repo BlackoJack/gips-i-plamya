@@ -78,12 +78,55 @@
       .photo img { width: 72px; height: 90px; object-fit: cover; background: var(--sand); }
       .product-row { grid-template-columns: 1fr auto; align-items: center; }
       .quiet { color: var(--quiet); font-size: 14px; }
+      .order {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        background: white;
+      }
+      .order.is-cancelled { color: var(--quiet); }
+      .order-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .order-head > div { flex: 1 1 16rem; min-width: 0; }
+      .order-number {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 560;
+        letter-spacing: -0.03em;
+        font-variant-numeric: lining-nums;
+      }
+      .order-who { margin: 2px 0 0; }
+      .order select.order-status { width: auto; min-width: 11rem; margin-top: 0; }
+      .order-items { list-style: none; margin: 0; padding: 0; }
+      .order-items li {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 4px 16px;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+        font-variant-numeric: lining-nums;
+      }
+      .order-items li span:first-child { flex: 1 1 14rem; }
+      .order-items li span:last-child { margin-left: auto; }
+      .order-total { margin: 0; font-weight: 600; font-variant-numeric: lining-nums; }
+      .order textarea { min-height: 72px; }
+      @media (max-width: 640px) {
+        .order select.order-status { width: 100%; }
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>Админка</h1>
-      <p class="note">Тексты, Telegram, полки и изделия. После сохранения обновите страницу сайта.</p>
+      <p class="note">Тексты, контакты, полки, изделия и заказы. После сохранения обновите страницу сайта.</p>
 
       <form id="login">
         <label>Пароль
@@ -105,9 +148,10 @@
           <p class="note">Пустое поле прячет эту кнопку на сайте. Почта для писем с заказами — отдельно, ниже.</p>
           <div id="contact"></div>
           <h2>Куда присылать заказы</h2>
-          <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Для Gmail нужен пароль приложения.</p>
+          <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Нужен пароль приложения, не обычный пароль от ящика. Пробелы в пароле можно не убирать.</p>
           <div id="mail"></div>
           <div class="row"><button type="button" id="test-mail" class="ghost">Проверить почту</button></div>
+          <p id="mail-status" class="status" role="status"></p>
           <h2>Поиск и описание</h2>
           <div id="meta"></div>
           <h2>Полки</h2>
@@ -162,8 +206,8 @@
         id_taken: "Такой артикул уже есть.",
         cart_changed: "В корзине есть изделие, которого уже нет на сайте.",
         smtp_no_password: "Нет пароля почты. Сначала впишите логин, пароль приложения и адрес получателя.",
-        smtp_535: "Почта отклонила пароль. Для Gmail нужен пароль приложения.",
-        smtp_534: "Почта отклонила пароль. Для Gmail нужен пароль приложения.",
+        smtp_535: "Почта отклонила пароль. Нужен пароль приложения: в Gmail это «Пароли приложений», в Яндексе — пароль приложения в настройках почты.",
+        smtp_534: "Почта отклонила пароль. Нужен пароль приложения: в Gmail это «Пароли приложений», в Яндексе — пароль приложения в настройках почты.",
         smtp_timeout: "Почтовый сервер не ответил.",
         smtp_config: "Проверьте адрес, логин и сервер.",
         smtp_failed: "Письмо не ушло.",
@@ -188,6 +232,7 @@
       const photosBox = document.getElementById("photos");
       const loginStatus = document.getElementById("login-status");
       const siteStatus = document.getElementById("site-status");
+      const mailStatus = document.getElementById("mail-status");
       const productStatus = document.getElementById("product-status");
 
       const passwordKey = "gips-admin";
@@ -220,6 +265,7 @@
         if (!response.ok) {
           const error = new Error(data.error || "validation");
           error.code = data.error || "validation";
+          error.status = response.status;
           throw error;
         }
         return data;
@@ -234,6 +280,7 @@
         input.name = name;
         input.value = value ?? "";
         if (settings.placeholder) input.placeholder = settings.placeholder;
+        if (settings.autocomplete) input.autocomplete = settings.autocomplete;
         if (settings.required) input.required = true;
         if (settings.readOnly) input.readOnly = true;
         wrap.append(input);
@@ -539,6 +586,13 @@
         };
       }
 
+      const orderStatuses = [
+        ["new", "Новый"],
+        ["work", "В работе"],
+        ["done", "Завершён"],
+        ["cancelled", "Отменён"],
+      ];
+
       function renderOrders(orders) {
         ordersBox.replaceChildren();
         if (!orders.length) {
@@ -547,25 +601,101 @@
         }
         for (const order of orders) {
           const article = document.createElement("article");
-          article.className = "category";
+          article.className = order.status === "cancelled" ? "order is-cancelled" : "order";
+
+          const head = document.createElement("div");
+          head.className = "order-head";
+          const who = document.createElement("div");
           const title = document.createElement("p");
+          title.className = "order-number";
           const when = order.at ? new Date(order.at).toLocaleString("ru-RU") : "";
-          title.textContent = `${order.number} — ${order.name} — ${when}`;
-          const body = document.createElement("p");
-          const lines = (order.items || []).map((item) => `${item.id} ${item.title} × ${item.qty}`).join("; ");
-          body.textContent = `${order.contact}${order.note ? `. ${order.note}` : ""}. ${lines}`;
+          title.textContent = order.number || "Заказ";
+          const person = document.createElement("p");
+          person.className = "order-who";
+          person.textContent = [order.name, when].filter(Boolean).join(" · ");
+          const contact = document.createElement("p");
+          contact.className = "quiet";
+          contact.textContent = order.contact || "";
+          who.append(title, person, contact);
+
+          const status = document.createElement("select");
+          status.className = "order-status";
+          status.setAttribute("aria-label", `Статус ${order.number || "заказа"}`);
+          for (const [value, label] of orderStatuses) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            option.selected = (order.status || "new") === value;
+            status.append(option);
+          }
+          head.append(who, status);
+
+          const items = document.createElement("ul");
+          items.className = "order-items";
+          for (const item of order.items || []) {
+            const row = document.createElement("li");
+            const name = document.createElement("span");
+            name.textContent = `${item.title || item.id} · ${item.id}`;
+            const sum = document.createElement("span");
+            const lineSum = item.price == null ? "цену напишем" : priceLabel(item.price * item.qty);
+            const each = item.price == null ? "" : `${priceLabel(item.price)} × ${item.qty} = `;
+            sum.textContent = `${each}${lineSum}`;
+            row.append(name, sum);
+            items.append(row);
+          }
+          const total = document.createElement("p");
+          total.className = "order-total";
+          total.textContent = order.total == null ? "Итого: часть цен напишем в переписке" : `Итого ${priceLabel(order.total)}`;
+
+          const pieces = [head, items, total];
+          if (order.note) {
+            const comment = document.createElement("p");
+            comment.className = "quiet";
+            comment.textContent = `Комментарий покупателя: ${order.note}`;
+            pieces.push(comment);
+          }
+
+          const noteLabel = document.createElement("label");
+          noteLabel.textContent = "Примечание";
+          const note = document.createElement("textarea");
+          note.value = order.adminNote || "";
+          note.maxLength = 2000;
+          noteLabel.append(note);
+
           const buttons = document.createElement("div");
           buttons.className = "row";
+          const save = document.createElement("button");
+          save.type = "button";
+          save.textContent = "Сохранить";
           const remove = document.createElement("button");
           remove.type = "button";
           remove.className = "ghost";
-          remove.textContent = "Убрать";
-          remove.addEventListener("click", async () => {
-            await admin("delete-order", { key: order.key });
-            await refreshOrders();
+          remove.textContent = "Удалить";
+          const state = document.createElement("p");
+          state.className = "status";
+          save.addEventListener("click", async () => {
+            state.textContent = "Сохраняю…";
+            save.disabled = true;
+            try {
+              await admin("update-order", { key: order.key, status: status.value, adminNote: note.value });
+              await refreshOrders();
+            } catch (error) {
+              state.textContent = message(error);
+              save.disabled = false;
+            }
           });
-          buttons.append(remove);
-          article.append(title, body, buttons);
+          remove.addEventListener("click", async () => {
+            if (!confirm(`Удалить заказ ${order.number || ""}?`.trim())) return;
+            state.textContent = "Удаляю…";
+            try {
+              await admin("delete-order", { key: order.key });
+              await refreshOrders();
+            } catch (error) {
+              state.textContent = message(error);
+            }
+          });
+          buttons.append(save, remove);
+          article.append(...pieces, noteLabel, buttons, state);
           ordersBox.append(article);
         }
       }
@@ -684,8 +814,11 @@
         }
       });
 
-      document.getElementById("test-mail").addEventListener("click", async () => {
-        siteStatus.textContent = "Проверяю почту…";
+      document.getElementById("test-mail").addEventListener("click", async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        mailStatus.textContent = "Проверяю почту…";
+        button.disabled = true;
         try {
           const result = await admin("test-mail", { notify: collectNotify() });
           if (!result.ok) {
@@ -693,9 +826,11 @@
             error.code = result.error || "smtp_failed";
             throw error;
           }
-          siteStatus.textContent = "Письмо ушло. Проверьте входящие.";
+          mailStatus.textContent = "Письмо ушло. Проверьте входящие.";
         } catch (error) {
-          siteStatus.textContent = message(error);
+          mailStatus.textContent = error.status >= 500 ? errors.smtp_timeout : message(error);
+        } finally {
+          button.disabled = false;
         }
       });
 

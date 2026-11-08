@@ -282,7 +282,32 @@ test("заказ получает номер и остаётся в админк
     const listed = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
     assert.equal(listed.orders[0].number, "ГП-1001");
     assert.equal(listed.orders[0].contact, "+7 913 000-00-00");
+    assert.equal(listed.orders[0].status, "new");
+    assert.equal(listed.orders[0].adminNote, "");
     assert.equal(listed.orders[0].items[0].id, "vaza-12");
+    const updated = JSON.parse(
+      (
+        await call(
+          "POST",
+          "admin",
+          { action: "update-order", key: "orders/1001.json", status: "work", adminNote: "Позвонить после 18" },
+          "test-password-1",
+        )
+      ).body,
+    );
+    assert.equal(updated.ok, true);
+    assert.equal(updated.order.status, "work");
+    assert.equal(updated.order.adminNote, "Позвонить после 18");
+    assert.equal(updated.order.note, "Самовывоз");
+    const again = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
+    assert.equal(again.orders[0].status, "work");
+    const rejected = await call(
+      "POST",
+      "admin",
+      { action: "update-order", key: "orders/1001.json", status: "lost", adminNote: "" },
+      "test-password-1",
+    );
+    assert.equal(rejected.statusCode, 422);
   } finally {
     for (const [key, value] of Object.entries({
       LOCAL_ROOT: previous.root,

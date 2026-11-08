@@ -144,6 +144,35 @@
   text-decoration-color: var(--color-flame);
 }
 
+.nav-cart:hover .nav-link,
+.nav-cart:focus-visible .nav-link {
+  text-decoration-color: var(--color-flame);
+}
+
+.cart-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  margin-left: 0.45rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.dock .cart-count {
+  margin-left: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
 .thumb {
   border: 1px solid transparent;
   padding: 0;
