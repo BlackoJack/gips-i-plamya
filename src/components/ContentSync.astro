@@ -36,7 +36,15 @@
     images: string[];
   };
   type LiveContent = {
-    contacts?: { telegram?: string; whatsapp?: string; max?: string; email?: string };
+    contacts?: {
+      telegram?: string;
+      whatsapp?: string;
+      max?: string;
+      email?: string;
+      telegramGroup?: string;
+      whatsappGroup?: string;
+      maxGroup?: string;
+    };
     meta?: { title?: string; description?: string };
     texts: {
       hero: { kicker: string; line: string; catalog: string };
@@ -105,30 +113,50 @@
     return slug;
   }
 
-  function contactItems(contacts: LiveContent["contacts"]) {
-    const items: [string, string][] = [];
-    if (contacts?.telegram) items.push(["Telegram", contacts.telegram]);
-    if (contacts?.whatsapp) items.push(["WhatsApp", contacts.whatsapp]);
-    if (contacts?.max) items.push(["Max", contacts.max]);
-    if (contacts?.email) items.push(["Почта", `mailto:${contacts.email}`]);
-    return items;
+  const contactIcons: Record<string, string> = {
+    telegram:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.2 4.4 2.9 11.2c-.8.3-.8.8-.1 1l4.6 1.4 1.8 5.5c.2.6.4.7.8.3l2.6-2.4 4.8 3.5c.6.4 1.1.2 1.2-.6l3.2-14.2c.2-.9-.3-1.4-1.6-1.3zM8.8 13.2l9.2-5.8c.4-.2.7 0 .4.3l-7.8 7-.3 3.1-1.5-4.6z"/></svg>',
+    whatsapp:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 0 0-7.7 13.5L3.4 21l4.6-1.2A9 9 0 1 0 12 3zm0 16.2a7.2 7.2 0 0 1-3.7-1l-.3-.2-2.7.7.7-2.6-.2-.3A7.2 7.2 0 1 1 12 19.2zm4.1-4.8c-.2-.1-1.2-.6-1.4-.6-.2-.1-.3-.1-.5.1l-.4.5c-.1.1-.3.2-.5.1-1.1-.6-1.9-1.3-2.5-2.3-.1-.2 0-.3.1-.5l.4-.4c.1-.1.1-.3 0-.4l-.6-1.5c-.2-.4-.3-.3-.5-.3h-.4c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2.9 2.4c.1.1 1.6 2.4 3.8 3.3 1.5.6 1.8.5 2.5.4.4-.1 1.2-.5 1.4-1 .1-.5.1-.9 0-1-.1-.1-.2-.1-.4-.2z"/></svg>',
+    max: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4.8h14a1.7 1.7 0 0 1 1.7 1.7v7.6A1.7 1.7 0 0 1 19 15.8h-7.2L7.2 19.4c-.5.4-1.2 0-1.2-.6v-3H5a1.7 1.7 0 0 1-1.7-1.7V6.5A1.7 1.7 0 0 1 5 4.8z"/><path fill="#f1ede6" d="M8 8.7h1.4l1.3 2.1 1.3-2.1H13.4L11.3 12l2.1 3.3h-1.4l-1.3-2.1-1.3 2.1H8l2.1-3.3L8 8.7z"/></svg>',
+    email:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.5 6.2h17v11.6h-17z"/><path fill="#f1ede6" d="m4.4 7.2 7.6 5.6 7.6-5.6v1.5L12 14.6 4.4 8.7z"/></svg>',
+  };
+
+  function contactChip(kind: string, label: string, link: string) {
+    const external = link.startsWith("http");
+    const extra = external ? ' target="_blank" rel="noopener noreferrer"' : "";
+    return `<a class="contact-chip" href="${escapeHtml(link)}"${extra}>${contactIcons[kind] || ""}<span>${escapeHtml(label)}</span></a>`;
   }
 
-  function setContacts(contacts: LiveContent["contacts"]) {
-    const items = contactItems(contacts);
-    document.querySelectorAll<HTMLElement>("[data-contacts]").forEach((nav) => {
+  function setContactNav(selector: string, items: string[]) {
+    document.querySelectorAll<HTMLElement>(selector).forEach((nav) => {
       if (!items.length) {
         nav.hidden = true;
         nav.replaceChildren();
         return;
       }
       nav.hidden = false;
-      nav.innerHTML = items
-        .map(
-          ([label, link]) =>
-            `<a class="quiet-link inline-flex min-h-11 items-center" href="${escapeHtml(link)}">${escapeHtml(label)}</a>`,
-        )
-        .join("");
+      nav.innerHTML = items.join("");
+    });
+  }
+
+  function setContacts(contacts: LiveContent["contacts"]) {
+    const direct = [
+      contacts?.telegram ? contactChip("telegram", "Telegram", contacts.telegram) : "",
+      contacts?.whatsapp ? contactChip("whatsapp", "WhatsApp", contacts.whatsapp) : "",
+      contacts?.max ? contactChip("max", "Max", contacts.max) : "",
+      contacts?.email ? contactChip("email", "Почта", `mailto:${contacts.email}`) : "",
+    ].filter(Boolean);
+    const groups = [
+      contacts?.telegramGroup ? contactChip("telegram", "Telegram", contacts.telegramGroup) : "",
+      contacts?.maxGroup ? contactChip("max", "Max", contacts.maxGroup) : "",
+      contacts?.whatsappGroup ? contactChip("whatsapp", "WhatsApp", contacts.whatsappGroup) : "",
+    ].filter(Boolean);
+    setContactNav("[data-contacts]", direct);
+    setContactNav("[data-groups]", groups);
+    document.querySelectorAll<HTMLElement>("[data-groups-label]").forEach((node) => {
+      node.hidden = groups.length === 0;
     });
   }
 
@@ -234,7 +262,7 @@
 
   function productHtml(product: Product, content: LiveContent) {
     const category = categoryOf(content, product.category);
-    const action = `<button class="btn btn-ink mt-8 w-full sm:w-auto" type="button" data-add-cart="${escapeHtml(product.id)}" data-cart-label>${escapeHtml(content.texts.product.want)}</button><nav class="mt-6 flex flex-wrap gap-x-5 gap-y-2" data-contacts hidden aria-label="Спросить про изделие"></nav>`;
+    const action = `<button class="btn btn-ink mt-8 w-full sm:w-auto" type="button" data-add-cart="${escapeHtml(product.id)}" data-cart-label>${escapeHtml(content.texts.product.want)}</button><nav class="contact-row mt-6" data-contacts hidden aria-label="Спросить про изделие"></nav>`;
     const categoryLink = category
       ? `<a class="quiet-link text-quiet" href="${escapeHtml(href(`/katalog/${category.slug}`))}">${escapeHtml(category.title)}</a>`
       : "";

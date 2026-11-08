@@ -105,17 +105,25 @@
       .order-who { margin: 2px 0 0; }
       .order select.order-status { width: auto; min-width: 11rem; margin-top: 0; }
       .order-items { list-style: none; margin: 0; padding: 0; }
-      .order-items li {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 4px 16px;
-        padding: 8px 0;
+      .order-line {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 10px;
+        align-items: center;
+        padding: 10px 0;
         border-top: 1px solid var(--line);
         font-variant-numeric: lining-nums;
       }
-      .order-items li span:first-child { flex: 1 1 14rem; }
-      .order-items li span:last-child { margin-left: auto; }
+      .order-line .line-name { grid-column: 1 / -1; }
+      .order-line input { width: 4.75rem; margin-top: 0; }
+      .order-add-row select { width: auto; min-width: 12rem; margin-top: 0; flex: 1; }
+      @media (min-width: 720px) {
+        .order-line { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+        .order-line .line-name { grid-column: auto; }
+      }
+      @media (max-width: 640px) {
+        .order-add-row select { width: 100%; }
+      }
       .order-total { margin: 0; font-weight: 600; font-variant-numeric: lining-nums; }
       .order textarea { min-height: 72px; }
       @media (max-width: 640px) {
@@ -145,7 +153,7 @@
           <h2>Тексты</h2>
           <div id="texts"></div>
           <h2>Контакты</h2>
-          <p class="note">Пустое поле прячет эту кнопку на сайте. Почта для писем с заказами — отдельно, ниже.</p>
+          <p class="note">Пустое поле прячет эту кнопку на сайте. Группа — отдельная ссылка, не вместо личного контакта. Почта для писем с заказами — отдельно, ниже.</p>
           <div id="contact"></div>
           <h2>Куда присылать заказы</h2>
           <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Нужен пароль приложения, не обычный пароль от ящика. Пробелы в пароле можно не убирать.</p>
@@ -201,6 +209,9 @@
         telegram: "Telegram: ссылка вида https://t.me/name.",
         whatsapp: "WhatsApp: номер телефона, например +7 913 000-00-00.",
         max: "Max: ссылка вида https://max.ru/name.",
+        telegram_group: "Группа Telegram: https://t.me/name, https://t.me/+код или https://t.me/joinchat/код.",
+        whatsapp_group: "Группа WhatsApp: ссылка вида https://chat.whatsapp.com/код.",
+        max_group: "Группа Max: ссылка вида https://max.ru/join/код.",
         email: "Почта на сайте должна быть адресом, например shop@example.ru.",
         mail: "Проверьте сервер, логин и адрес, куда слать заказы. Порт только 465.",
         id_taken: "Такой артикул уже есть.",
@@ -313,6 +324,9 @@
         contactBox.append(field("whatsapp", "WhatsApp", contacts.whatsapp || "", { placeholder: "+7 913 000-00-00" }));
         contactBox.append(field("max", "Max", contacts.max || "", { placeholder: "https://max.ru/name" }));
         contactBox.append(field("email", "Почта на сайте", contacts.email || "", { placeholder: "shop@example.ru" }));
+        contactBox.append(field("telegramGroup", "Группа Telegram", contacts.telegramGroup || "", { placeholder: "https://t.me/+код" }));
+        contactBox.append(field("maxGroup", "Группа Max", contacts.maxGroup || "", { placeholder: "https://max.ru/join/код" }));
+        contactBox.append(field("whatsappGroup", "Группа WhatsApp", contacts.whatsappGroup || "", { placeholder: "https://chat.whatsapp.com/код" }));
         const mail = notify || {};
         mailBox.replaceChildren();
         mailBox.append(field("smtpHost", "Сервер почты", mail.smtpHost || "smtp.yandex.ru"));
@@ -508,6 +522,9 @@
             whatsapp: String(data.get("whatsapp") || "").trim(),
             max: String(data.get("max") || "").trim(),
             email: String(data.get("email") || "").trim(),
+            telegramGroup: String(data.get("telegramGroup") || "").trim(),
+            whatsappGroup: String(data.get("whatsappGroup") || "").trim(),
+            maxGroup: String(data.get("maxGroup") || "").trim(),
           },
           meta: {
             title: String(data.get("meta.title") || ""),
@@ -630,24 +647,107 @@
           }
           head.append(who, status);
 
+          const lines = (order.items || []).map((item) => ({
+            id: item.id,
+            title: item.title || item.id,
+            qty: item.qty,
+            price: item.price,
+          }));
           const items = document.createElement("ul");
           items.className = "order-items";
-          for (const item of order.items || []) {
-            const row = document.createElement("li");
-            const name = document.createElement("span");
-            name.textContent = `${item.title || item.id} · ${item.id}`;
-            const sum = document.createElement("span");
-            const lineSum = item.price == null ? "цену напишем" : priceLabel(item.price * item.qty);
-            const each = item.price == null ? "" : `${priceLabel(item.price)} × ${item.qty} = `;
-            sum.textContent = `${each}${lineSum}`;
-            row.append(name, sum);
-            items.append(row);
-          }
           const total = document.createElement("p");
           total.className = "order-total";
-          total.textContent = order.total == null ? "Итого: часть цен напишем в переписке" : `Итого ${priceLabel(order.total)}`;
+          const addRow = document.createElement("div");
+          addRow.className = "row order-add-row";
 
-          const pieces = [head, items, total];
+          function lineMoney(item) {
+            if (item.price == null) return "цену напишем";
+            return `${priceLabel(item.price)} × ${item.qty} = ${priceLabel(item.price * item.qty)}`;
+          }
+
+          function paintTotal() {
+            const later = lines.some((item) => item.price == null);
+            const sum = lines.reduce((acc, item) => acc + (item.price == null ? 0 : item.price * item.qty), 0);
+            total.textContent = later ? `Известная сумма ${priceLabel(sum)}. Остальное напишем в переписке.` : `Итого ${priceLabel(sum)}`;
+          }
+
+          function paintAdd() {
+            addRow.replaceChildren();
+            const taken = new Set(lines.map((item) => item.id));
+            const available = (content.products || []).filter((product) => !taken.has(product.id));
+            if (!available.length) return;
+            const select = document.createElement("select");
+            select.setAttribute("aria-label", "Добавить изделие");
+            for (const product of available) {
+              const option = document.createElement("option");
+              option.value = product.id;
+              option.textContent = `${product.title} · ${product.id}${product.published ? "" : " · скрыто"}`;
+              select.append(option);
+            }
+            const add = document.createElement("button");
+            add.type = "button";
+            add.className = "ghost";
+            add.textContent = "Добавить";
+            add.addEventListener("click", () => {
+              const product = available.find((item) => item.id === select.value);
+              if (!product) return;
+              lines.push({ id: product.id, title: product.title, qty: 1, price: product.price });
+              paintLines();
+            });
+            addRow.append(select, add);
+          }
+
+          function paintLines() {
+            items.replaceChildren();
+            for (const item of lines) {
+              const row = document.createElement("li");
+              row.className = "order-line";
+              const name = document.createElement("span");
+              name.className = "line-name";
+              name.textContent = `${item.title} · ${item.id}`;
+              const qtyLabel = document.createElement("label");
+              qtyLabel.textContent = "Шт ";
+              const qty = document.createElement("input");
+              qty.type = "number";
+              qty.min = "1";
+              qty.max = "20";
+              qty.value = String(item.qty);
+              qty.setAttribute("aria-label", `Количество ${item.title}`);
+              const sum = document.createElement("span");
+              sum.className = "line-sum";
+              sum.textContent = lineMoney(item);
+              qty.addEventListener("change", () => {
+                const next = Number(qty.value);
+                if (!Number.isInteger(next) || next < 1 || next > 20) {
+                  qty.value = String(item.qty);
+                  return;
+                }
+                item.qty = next;
+                sum.textContent = lineMoney(item);
+                paintTotal();
+              });
+              qtyLabel.append(qty);
+              const drop = document.createElement("button");
+              drop.type = "button";
+              drop.className = "ghost";
+              drop.textContent = "Убрать";
+              drop.addEventListener("click", () => {
+                if (lines.length === 1) {
+                  state.textContent = "В заказе нужно хотя бы одно изделие.";
+                  return;
+                }
+                lines.splice(lines.indexOf(item), 1);
+                state.textContent = "";
+                paintLines();
+              });
+              row.append(name, qtyLabel, sum, drop);
+              items.append(row);
+            }
+            paintAdd();
+            paintTotal();
+          }
+
+          const pieces = [head, items, addRow, total];
           if (order.note) {
             const comment = document.createElement("p");
             comment.className = "quiet";
@@ -673,11 +773,17 @@
           remove.textContent = "Удалить";
           const state = document.createElement("p");
           state.className = "status";
+          paintLines();
           save.addEventListener("click", async () => {
             state.textContent = "Сохраняю…";
             save.disabled = true;
             try {
-              await admin("update-order", { key: order.key, status: status.value, adminNote: note.value });
+              await admin("update-order", {
+                key: order.key,
+                status: status.value,
+                adminNote: note.value,
+                items: lines.map((item) => ({ id: item.id, qty: item.qty })),
+              });
               await refreshOrders();
             } catch (error) {
               state.textContent = message(error);

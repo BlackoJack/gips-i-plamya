@@ -1,10 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
 import { href } from "../config";
+
+const root = href("/").replace(/\/$/, "");
 ---
 
-<Base title="Корзина — Гипс и пламя" noindex>
-  <section class="wrap pt-4 pb-8 md:pt-8 md:pb-16">
+<Base title="Корзина — Гипс и пламя" noindex page="cart">
+  <section class="wrap pt-4 pb-8 md:pt-8 md:pb-16" data-root={root}>
     <h1 class="font-display text-[clamp(44px,7vw,80px)] leading-[0.95]">Корзина</h1>
     <p class="mt-6 max-w-md text-lg" data-cart-empty>
       Пока пусто. <a class="quiet-link" href={href("/katalog")}>Смотреть изделия</a>
@@ -51,7 +53,12 @@ import { href } from "../config";
     const statusNode = document.querySelector("[data-order-status]");
     const done = document.querySelector("[data-order-done]");
     const numberNode = document.querySelector("[data-order-number]");
+    const root = document.querySelector("[data-root]")?.getAttribute("data-root") || "";
     let catalog = [];
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    }
 
     function money(value) {
       return `${new Intl.NumberFormat("ru-RU").format(value).replace(/[\u00A0\u202F]/g, " ")}\u00A0₽`;
@@ -86,12 +93,24 @@ import { href } from "../config";
           if (price == null) later = true;
           else known += price * row.qty;
           const priceText = !product ? "нет на сайте" : price == null ? "цену напишем" : money(price);
-          return `<li class="grid gap-3 border-t border-ink/12 py-4 sm:grid-cols-[1fr_auto] sm:items-center"><div><p class="text-sm text-quiet">${row.id}</p><p class="font-display text-3xl leading-none">${title}</p><p class="mt-2">${priceText}</p></div><label class="flex items-center gap-3">Шт<input class="field w-20" data-qty="${row.id}" type="number" min="1" max="20" value="${row.qty}"></label></li>`;
+          const key = product?.images?.[0] || "";
+          const photo = /^media\/[a-z0-9][a-z0-9_-]{0,40}\/[a-z0-9][a-z0-9_-]{0,40}\.jpg$/.test(key)
+            ? `<img class="cart-photo" alt="" src="${escapeHtml(`${root}/${key}`)}">`
+            : `<span class="cart-photo" aria-hidden="true"></span>`;
+          return `<li class="cart-line">${photo}<div><p class="text-sm text-quiet">${escapeHtml(row.id)}</p><p class="font-display text-[1.7rem] leading-none">${escapeHtml(title)}</p><p class="mt-2">${escapeHtml(priceText)}</p></div><div class="col-span-2 flex items-center gap-4 sm:col-span-1 sm:col-start-3"><label class="flex items-center gap-2">Шт<input class="field w-20" data-qty="${escapeHtml(row.id)}" type="number" min="1" max="20" value="${row.qty}"></label><button class="cart-remove" type="button" data-remove="${escapeHtml(row.id)}">Убрать</button></div></li>`;
         })
         .join("");
       if (totalNode) {
         totalNode.textContent = later ? `Известная сумма ${money(known)}. Остальное напишем в переписке.` : `Итого ${money(known)}`;
       }
+      lines.querySelectorAll("img.cart-photo").forEach((img) => {
+        img.addEventListener("error", () => {
+          const blank = document.createElement("span");
+          blank.className = "cart-photo";
+          blank.setAttribute("aria-hidden", "true");
+          img.replaceWith(blank);
+        });
+      });
     }
 
     async function loadCatalog() {
@@ -105,6 +124,18 @@ import { href } from "../config";
       }
       paint();
     }
+
+    lines?.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest("[data-remove]");
+      if (!(button instanceof HTMLButtonElement)) return;
+      const id = button.dataset.remove || "";
+      const cart = readCart().filter((row) => row.id !== id);
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+      document.dispatchEvent(new CustomEvent("gips-cart"));
+      paint();
+    });
 
     lines?.addEventListener("change", (event) => {
       const target = event.target;

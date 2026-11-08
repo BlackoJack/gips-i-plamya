@@ -11,6 +11,9 @@ export const config = {
     whatsapp: "",
     max: "",
     email: "",
+    telegramGroup: "",
+    whatsappGroup: "",
+    maxGroup: "",
   },
   meta: {
     title: "Гипс и пламя — гипсовый декор и свечи для дома",

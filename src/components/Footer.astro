@@ -4,12 +4,14 @@ import { config, href } from "../config";
 const year = new Date().getFullYear();
 ---
 
-<footer class="wrap border-t border-ink/12 py-8">
+<footer class="wrap border-t border-ink/12 pt-8 pb-24">
   <div class="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3 text-[0.98rem]">
     <p>{config.name}</p>
     <a class="quiet-link inline-flex min-h-11 items-center" href={href("/katalog")}>Изделия</a>
     <a class="quiet-link inline-flex min-h-11 items-center" href={href("/korzina")}>Корзина</a>
     <p>{year}</p>
   </div>
-  <nav class="mt-4 flex flex-wrap gap-x-5 gap-y-2" data-contacts hidden aria-label="Контакты"></nav>
+  <nav class="contact-row mt-5" data-contacts hidden aria-label="Написать"></nav>
+  <p class="mt-5 text-sm text-quiet" data-groups-label hidden>Группы</p>
+  <nav class="contact-row mt-2" data-groups hidden aria-label="Группы"></nav>
 </footer>

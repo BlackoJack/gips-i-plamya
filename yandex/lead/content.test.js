@@ -43,7 +43,23 @@ test("сид из репозитория публикует только гот�
   assert.equal(checked.contacts.telegram, "");
   assert.equal(checked.contacts.whatsapp, "");
   assert.equal(checked.contacts.email, "");
+  assert.equal(checked.contacts.telegramGroup, "");
+  assert.equal(checked.contacts.maxGroup, "");
+  assert.equal(checked.contacts.whatsappGroup, "");
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("группа принимается только своей ссылкой", () => {
+  const seed = JSON.parse(fs.readFileSync(path.join(__dirname, "content.default.json"), "utf8"));
+  seed.contacts.telegramGroup = "https://t.me/+Abcd1234";
+  seed.contacts.maxGroup = "https://max.ru/join/workshop";
+  seed.contacts.whatsappGroup = "https://chat.whatsapp.com/Abcd123456";
+  const saved = sanitizeContent(seed);
+  assert.equal(saved.contacts.telegramGroup, "https://t.me/+Abcd1234");
+  assert.equal(saved.contacts.maxGroup, "https://max.ru/join/workshop");
+  assert.equal(saved.contacts.whatsappGroup, "https://chat.whatsapp.com/Abcd123456");
+  seed.contacts.whatsappGroup = "https://wa.me/79130000000";
+  assert.equal(sanitizeContent(seed), null);
 });
 
 test("пустой telegram допустим, чужой адрес нет", () => {
@@ -299,6 +315,34 @@ test("заказ получает номер и остаётся в админк
     assert.equal(updated.order.status, "work");
     assert.equal(updated.order.adminNote, "Позвонить после 18");
     assert.equal(updated.order.note, "Самовывоз");
+    assert.equal(updated.order.items[0].qty, 2);
+    assert.equal(updated.order.total, 2400);
+    const resized = JSON.parse(
+      (
+        await call(
+          "POST",
+          "admin",
+          {
+            action: "update-order",
+            key: "orders/1001.json",
+            status: "work",
+            adminNote: "Позвонить после 18",
+            items: [{ id: "vaza-12", qty: 1 }],
+          },
+          "test-password-1",
+        )
+      ).body,
+    );
+    assert.equal(resized.order.items.length, 1);
+    assert.equal(resized.order.items[0].qty, 1);
+    assert.equal(resized.order.total, 1200);
+    const emptied = await call(
+      "POST",
+      "admin",
+      { action: "update-order", key: "orders/1001.json", status: "work", adminNote: "", items: [] },
+      "test-password-1",
+    );
+    assert.equal(emptied.statusCode, 422);
     const again = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
     assert.equal(again.orders[0].status, "work");
     const rejected = await call(

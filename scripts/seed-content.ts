@@ -91,6 +91,9 @@ function buildSeed() {
         whatsapp: config.contacts.whatsapp,
         max: config.contacts.max,
         email: config.contacts.email,
+        telegramGroup: "",
+        whatsappGroup: "",
+        maxGroup: "",
       },
       meta: { title: config.meta.title, description: config.meta.description },
       texts: {

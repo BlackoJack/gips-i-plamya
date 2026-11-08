@@ -226,6 +226,60 @@ function cleanEmail(value) {
   return { ok: true, value: address };
 }
 
+function cleanTelegramGroup(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, value: "" };
+  if (raw.length > 200 || /[\s<>]/.test(raw)) return fail("telegram_group");
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return fail("telegram_group");
+  }
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || (host !== "t.me" && host !== "telegram.me")) return fail("telegram_group");
+  if (url.username || url.password || url.search || url.hash) return fail("telegram_group");
+  const pathName = url.pathname.replace(/\/+$/, "");
+  if (/^\/[A-Za-z0-9_]{4,32}$/.test(pathName) || /^\/\+[A-Za-z0-9_-]{8,80}$/.test(pathName) || /^\/joinchat\/[A-Za-z0-9_-]{8,80}$/.test(pathName)) {
+    return { ok: true, value: `https://t.me${pathName}` };
+  }
+  return fail("telegram_group");
+}
+
+function cleanWhatsappGroup(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, value: "" };
+  if (raw.length > 200 || /[\s<>]/.test(raw)) return fail("whatsapp_group");
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return fail("whatsapp_group");
+  }
+  if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "chat.whatsapp.com") return fail("whatsapp_group");
+  if (url.username || url.password || url.search || url.hash) return fail("whatsapp_group");
+  const code = url.pathname.replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9]{10,64}$/.test(code)) return fail("whatsapp_group");
+  return { ok: true, value: `https://chat.whatsapp.com/${code}` };
+}
+
+function cleanMaxGroup(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { ok: true, value: "" };
+  if (raw.length > 200 || /[\s<>]/.test(raw)) return fail("max_group");
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return fail("max_group");
+  }
+  if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "max.ru") return fail("max_group");
+  if (url.username || url.password || url.search || url.hash) return fail("max_group");
+  const pathName = url.pathname.replace(/\/+$/, "");
+  if (!/^\/[A-Za-z0-9._-]{1,64}(?:\/[A-Za-z0-9._-]{1,64}){0,3}$/.test(pathName)) return fail("max_group");
+  return { ok: true, value: `https://max.ru${pathName}` };
+}
+
 function checkContacts(input) {
   const source = input && typeof input === "object" ? input : {};
   const telegramRaw = typeof source.telegram === "string" ? source.telegram : source.telegram?.url || "";
@@ -240,10 +294,50 @@ function checkContacts(input) {
   if (!max.ok) return max;
   const email = cleanEmail(emailRaw);
   if (!email.ok) return email;
+  const telegramGroup = cleanTelegramGroup(source.telegramGroup);
+  if (!telegramGroup.ok) return telegramGroup;
+  const whatsappGroup = cleanWhatsappGroup(source.whatsappGroup);
+  if (!whatsappGroup.ok) return whatsappGroup;
+  const maxGroup = cleanMaxGroup(source.maxGroup);
+  if (!maxGroup.ok) return maxGroup;
   return {
     ok: true,
-    value: { telegram: telegram.value, whatsapp: whatsapp.value, max: max.value, email: email.value },
+    value: {
+      telegram: telegram.value,
+      whatsapp: whatsapp.value,
+      max: max.value,
+      email: email.value,
+      telegramGroup: telegramGroup.value,
+      whatsappGroup: whatsappGroup.value,
+      maxGroup: maxGroup.value,
+    },
   };
+}
+
+function orderTotal(items) {
+  if (items.some((item) => item.price == null)) return null;
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+function editedItems(rows, content, previous) {
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > 30) return null;
+  const seen = new Set();
+  const prior = Array.isArray(previous) ? previous : [];
+  const items = [];
+  for (const row of rows) {
+    const id = cleanId(row?.id);
+    const qty = Number(row?.qty);
+    if (!id || seen.has(id) || !Number.isInteger(qty) || qty < 1 || qty > 20) return null;
+    seen.add(id);
+    const product = content.products.find((item) => item.id === id);
+    const old = prior.find((item) => item && item.id === id);
+    if (product) items.push({ id, title: product.title, qty, price: product.price });
+    else if (old && typeof old.title === "string" && old.title.trim()) {
+      const price = Number.isInteger(old.price) ? old.price : null;
+      items.push({ id, title: old.title.trim().slice(0, 120), qty, price });
+    } else return null;
+  }
+  return items;
 }
 
 function cleanPrice(value) {
@@ -1227,7 +1321,13 @@ async function handleAdmin(event, method) {
     } catch {
       return json(422, { ok: false, error: "validation" });
     }
-    const next = { ...data, status: body.status, adminNote };
+    let items = Array.isArray(data.items) ? data.items : [];
+    if (Array.isArray(body.items)) {
+      const edited = editedItems(body.items, current, items);
+      if (!edited) return json(422, { ok: false, error: "validation" });
+      items = edited;
+    }
+    const next = { ...data, status: body.status, adminNote, items, total: orderTotal(items) };
     const written = await s3(dataBucket(), "PUT", body.key, {
       body: `${JSON.stringify(next, null, 2)}\n`,
       contentType: "application/json",

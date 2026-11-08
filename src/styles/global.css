@@ -45,12 +45,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  @media (max-width: 767px) {
-    body {
-      padding-bottom: 5rem;
-    }
-  }
-
   ::selection {
     background: var(--color-sand);
     color: var(--color-ink);
@@ -167,10 +161,112 @@
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-.dock .cart-count {
-  margin-left: 0;
+.cart-fab {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 48px;
+  padding: 0 0.95rem 0 1.15rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  box-shadow: 0 12px 28px rgba(34, 19, 9, 0.18);
+}
+
+.cart-fab:hover {
+  background: #3a2b1e;
+}
+
+body[data-page="cart"] .cart-fab {
+  display: none;
+}
+
+.cart-fab .cart-count {
+  margin-left: 0.1rem;
   background: var(--color-paper);
   color: var(--color-ink);
+}
+
+.contact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+footer .contact-row {
+  margin-right: 8.5rem;
+}
+
+.contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0 0.9rem 0 0.75rem;
+  border: 1px solid rgba(34, 19, 9, 0.16);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.contact-chip svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.contact-chip:hover {
+  border-color: var(--color-flame);
+  color: var(--color-flame);
+}
+
+.cart-line {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 0.85rem 1rem;
+  align-items: center;
+  border-top: 1px solid rgba(34, 19, 9, 0.12);
+  padding: 1rem 0;
+}
+
+.cart-photo {
+  width: 72px;
+  height: 90px;
+  border-radius: 2px;
+  object-fit: cover;
+  background: var(--color-sand);
+}
+
+.cart-remove {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-quiet);
+  font: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  cursor: pointer;
+}
+
+.cart-remove:hover {
+  color: var(--color-ink);
+  text-decoration-color: var(--color-flame);
+}
+
+@media (min-width: 640px) {
+  .cart-line {
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+  }
+
+  .cart-photo {
+    width: 88px;
+    height: 110px;
+  }
 }
 
 .thumb {
