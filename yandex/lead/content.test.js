@@ -567,3 +567,119 @@ test("окно даёт скидку на сервере и не публику�
     fs.rmSync(folder, { recursive: true, force: true });
   }
 });
+
+test("один контакт не получает бонус окна второй раз", async () => {
+  const previous = {
+    root: process.env.LOCAL_ROOT,
+    password: process.env.ADMIN_PASSWORD,
+    data: process.env.DATA_BUCKET,
+    site: process.env.SITE_BUCKET,
+  };
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "gips-offer-"));
+  process.env.LOCAL_ROOT = folder;
+  process.env.ADMIN_PASSWORD = "test-password-1";
+  process.env.DATA_BUCKET = "data";
+  process.env.SITE_BUCKET = "site";
+  try {
+    const call = (method, route, body, password) =>
+      handler({
+        httpMethod: method,
+        headers: password ? { "x-admin-password": password } : {},
+        body: body ? JSON.stringify(body) : "",
+        path: `/api/${route}`,
+        requestContext: { apiGateway: { operationContext: { route } } },
+      });
+    const product = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-product",
+        create: true,
+        product: {
+          id: "vaza-12",
+          title: "Ваза",
+          price: 1000,
+          category: "vases",
+          summary: "Для цветов",
+          body: "Гипсовая ваза.",
+          featured: true,
+          order: 1,
+          published: true,
+          images: ["media/vaza-12/1.jpg"],
+        },
+      },
+      "test-password-1",
+    );
+    assert.equal(product.statusCode, 200, product.body);
+    const popup = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-popup",
+        create: true,
+        popup: {
+          id: "vesna",
+          enabled: true,
+          title: "Весна",
+          text: "Десять процентов на этот заказ.",
+          kind: "discount",
+          mode: "percent",
+          value: 10,
+          gift: "",
+          code: "VESNA",
+          pages: ["cart"],
+          delay: 0,
+          repeat: "once",
+        },
+      },
+      "test-password-1",
+    );
+    assert.equal(popup.statusCode, 200, popup.body);
+    const order = (contact, offer) =>
+      call("POST", "order", {
+        name: "Анна",
+        contact,
+        note: "",
+        offer,
+        items: [{ id: "vaza-12", qty: 1 }],
+      });
+    const first = JSON.parse((await order("+7 913 000-00-00", "vesna")).body);
+    assert.equal(first.number, "ГП-1001");
+    assert.equal(first.total, 900);
+    const again = await order("8 (913) 000-00-00", "VESNA");
+    assert.equal(again.statusCode, 422);
+    assert.equal(JSON.parse(again.body).error, "offer_used");
+    const listed = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
+    assert.equal(listed.orders.length, 1);
+    const plain = JSON.parse((await order("тел. 89130000000", "")).body);
+    assert.equal(plain.number, "ГП-1002");
+    assert.equal(plain.total, 1000);
+    assert.equal(plain.offer, null);
+    const other = JSON.parse((await order("anna@mail.ru", "vesna")).body);
+    assert.equal(other.total, 900);
+    const sameMail = await order("Anna@Mail.ru", "vesna");
+    assert.equal(sameMail.statusCode, 422);
+    assert.equal(JSON.parse(sameMail.body).error, "offer_used");
+    const cancelled = await call(
+      "POST",
+      "admin",
+      { action: "update-order", key: "orders/1001.json", status: "cancelled", adminNote: "" },
+      "test-password-1",
+    );
+    assert.equal(cancelled.statusCode, 200, cancelled.body);
+    const afterCancel = JSON.parse((await order("89130000000", "vesna")).body);
+    assert.equal(afterCancel.total, 900);
+    assert.equal(afterCancel.offer.code, "VESNA");
+  } finally {
+    for (const [key, value] of Object.entries({
+      LOCAL_ROOT: previous.root,
+      ADMIN_PASSWORD: previous.password,
+      DATA_BUCKET: previous.data,
+      SITE_BUCKET: previous.site,
+    })) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+});

@@ -371,6 +371,61 @@ function applyOffer(content, rawCode, items) {
   });
 }
 
+function contactKeys(contact) {
+  const text = String(contact || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const compact = text.replace(/\s/g, "");
+  const keys = new Set();
+  if (!compact) return [];
+  keys.add(`raw:${compact}`);
+  const email = compact.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
+  if (email) keys.add(`mail:${email[0]}`);
+  const link = compact.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([a-z0-9_]{4,32})/);
+  if (link) keys.add(`tg:${link[1]}`);
+  else if (/^@?[a-z][a-z0-9_]{3,31}$/.test(compact)) keys.add(`tg:${compact.replace(/^@/, "")}`);
+  const runs = text.match(/\d[\d\s()+-]{8,}\d/g) || [];
+  for (const run of runs) {
+    let digits = run.replace(/\D/g, "");
+    if (digits.length === 11 && digits.startsWith("8")) digits = `7${digits.slice(1)}`;
+    else if (digits.length === 10) digits = `7${digits}`;
+    if (digits.length >= 11 && digits.length <= 15) keys.add(`tel:${digits}`);
+  }
+  return [...keys];
+}
+
+function sameContact(left, right) {
+  const other = new Set(contactKeys(right));
+  return contactKeys(left).some((key) => other.has(key));
+}
+
+function samePromo(left, right) {
+  if (!left || !right) return false;
+  if (left.id && right.id && left.id === right.id) return true;
+  return Boolean(left.code) && left.code === right.code;
+}
+
+async function offerAlreadyUsed(contact, offer) {
+  const keys = await orderKeys();
+  if (!keys) return null;
+  const rows = await Promise.all(
+    keys.map(async (key) => {
+      const object = await s3(dataBucket(), "GET", key);
+      if (object.status === 404) return { ok: true, data: null };
+      if (!object.ok) return { ok: false };
+      try {
+        return { ok: true, data: JSON.parse(object.text) };
+      } catch {
+        return { ok: true, data: null };
+      }
+    }),
+  );
+  if (rows.some((row) => !row.ok)) return null;
+  return rows.some((row) => {
+    const data = row.data;
+    if (!data || data.status === "cancelled") return false;
+    return samePromo(offer, offerView(data.offer)) && sameContact(contact, data.contact);
+  });
+}
+
 function editedItems(rows, content, previous) {
   if (!Array.isArray(rows) || rows.length < 1 || rows.length > 30) return null;
   const seen = new Set();
@@ -1275,6 +1330,11 @@ async function handleOrder(event, method) {
     items.push({ id, title: product.title, qty, price: product.price });
   }
   const priced = applyOffer(content, body.offer, items);
+  if (priced.offer) {
+    const used = await offerAlreadyUsed(contact, priced.offer);
+    if (used == null) return json(502, { ok: false, error: "offer_check" });
+    if (used) return json(422, { ok: false, error: "offer_used" });
+  }
   const n = await takeOrderNumber();
   if (!n) return json(502, { ok: false, error: "save_failed" });
   const number = `ГП-${n}`;

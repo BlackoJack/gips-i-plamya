@@ -224,10 +224,18 @@ const root = href("/").replace(/\/$/, "");
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
+          if (result.error === "offer_used") {
+            localStorage.removeItem("gips-offer");
+            paint();
+            statusNode.textContent = "Эта акция уже была с этим контактом. Заказ без бонуса можно отправить ещё раз.";
+            return;
+          }
           statusNode.textContent =
             result.error === "cart_changed"
               ? "Часть изделий уже не на сайте. Обновите корзину."
-              : "Не получилось. Проверьте имя и контакт.";
+              : result.error === "offer_check"
+                ? "Не удалось проверить акцию. Попробуйте ещё раз."
+                : "Не получилось. Проверьте имя и контакт.";
           return;
         }
         localStorage.removeItem(cartKey);
