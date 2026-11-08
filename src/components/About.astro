@@ -1,7 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import { content } from "../data/content";
-import portrait from "../assets/brand/portrait.jpg";
+import portrait from "../assets/brand/portrait.png";
 import mark from "../assets/brand/mark.jpg";
 ---
 
@@ -13,7 +13,7 @@ import mark from "../assets/brand/mark.jpg";
     sizes="(min-width: 768px) 40vw, 100vw"
     quality={76}
     loading="lazy"
-    class="h-auto w-full"
+    class="portrait"
   />
   <div>
     <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none" data-text="about.title">{content.about.title}</h2>

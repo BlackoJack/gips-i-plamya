@@ -106,7 +106,7 @@
     const frames = images
       .map((key, index) => {
         const alt = index === 0 ? title : `Кадр ${index + 1} — ${title}`;
-        return `<div class="photo-feather" data-live-frame data-index="${index}"${index === 0 ? "" : " hidden"}><img src="${escapeHtml(href(`/${key}`))}" alt="${escapeHtml(alt)}" class="h-auto w-full rounded-[2px]"${index === 0 ? "" : ' loading="lazy"'}></div>`;
+        return `<div class="photo-feather product-frame" data-live-frame data-index="${index}"${index === 0 ? "" : " hidden"}><img src="${escapeHtml(href(`/${key}`))}" alt="${escapeHtml(alt)}" class="product-photo"${index === 0 ? "" : ' loading="lazy"'}></div>`;
       })
       .join("");
     if (images.length < 2) return `<div class="grid gap-3">${frames}</div>`;
