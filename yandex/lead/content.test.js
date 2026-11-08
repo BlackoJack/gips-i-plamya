@@ -103,12 +103,29 @@ test("слияние добавляет новый id и не затирает �
     published: false,
     images: ["media/vaza-2/1.jpg"],
   });
+  remote.popups = [
+    {
+      id: "vesna",
+      enabled: true,
+      title: "Весна",
+      text: "Скидка на вазы.",
+      kind: "discount",
+      mode: "percent",
+      value: 10,
+      gift: "",
+      code: "VESNA",
+      pages: ["home"],
+      delay: 2,
+      repeat: "once",
+    },
+  ];
   const merged = mergeContent(remote, extra);
   assert.equal(merged.ok, true);
   assert.equal(merged.changed, true);
   const kept = merged.value.products.find((item) => item.id === remote.products[0].id);
   assert.equal(kept.price, 1900);
   assert.equal(kept.title, "Уже в админке");
+  assert.equal(merged.value.popups[0].code, "VESNA");
   assert.ok(merged.value.products.some((item) => item.id === "vaza-2"));
   assert.equal(mergeContent(merged.value, extra).changed, false);
 });
@@ -352,6 +369,191 @@ test("заказ получает номер и остаётся в админк
       "test-password-1",
     );
     assert.equal(rejected.statusCode, 422);
+  } finally {
+    for (const [key, value] of Object.entries({
+      LOCAL_ROOT: previous.root,
+      ADMIN_PASSWORD: previous.password,
+      DATA_BUCKET: previous.data,
+      SITE_BUCKET: previous.site,
+    })) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test("окно даёт скидку на сервере и не публикует выключенное", async () => {
+  const seed = JSON.parse(fs.readFileSync(path.join(__dirname, "content.default.json"), "utf8"));
+  assert.equal(sanitizeContent(seed).popups.length, 0);
+  const previous = {
+    root: process.env.LOCAL_ROOT,
+    password: process.env.ADMIN_PASSWORD,
+    data: process.env.DATA_BUCKET,
+    site: process.env.SITE_BUCKET,
+  };
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "gips-popup-"));
+  process.env.LOCAL_ROOT = folder;
+  process.env.ADMIN_PASSWORD = "test-password-1";
+  process.env.DATA_BUCKET = "data";
+  process.env.SITE_BUCKET = "site";
+  const popup = {
+    id: "vesna",
+    enabled: true,
+    title: "Весна",
+    text: "Десять процентов на этот заказ.",
+    kind: "discount",
+    mode: "percent",
+    value: 10,
+    gift: "",
+    code: "vesna",
+    pages: ["home", "cart"],
+    delay: 1,
+    repeat: "once",
+  };
+  try {
+    const call = (method, route, body, password) =>
+      handler({
+        httpMethod: method,
+        headers: password ? { "x-admin-password": password } : {},
+        body: body ? JSON.stringify(body) : "",
+        path: `/api/${route}`,
+        requestContext: { apiGateway: { operationContext: { route } } },
+      });
+    const product = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-product",
+        create: true,
+        product: {
+          id: "vaza-12",
+          title: "Ваза",
+          price: 1000,
+          category: "vases",
+          summary: "Для цветов",
+          body: "Гипсовая ваза.",
+          featured: true,
+          order: 1,
+          published: true,
+          images: ["media/vaza-12/1.jpg"],
+        },
+      },
+      "test-password-1",
+    );
+    assert.equal(product.statusCode, 200, product.body);
+    const saved = await call("POST", "admin", { action: "save-popup", create: true, popup }, "test-password-1");
+    assert.equal(saved.statusCode, 200, saved.body);
+    const steep = await call(
+      "POST",
+      "admin",
+      { action: "save-popup", popup: { ...popup, value: 90 } },
+      "test-password-1",
+    );
+    assert.equal(steep.statusCode, 422);
+    assert.equal(JSON.parse(steep.body).error, "popup_discount");
+    const hidden = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-popup",
+        create: true,
+        popup: { ...popup, id: "draft", enabled: false, code: "DRAFT1", title: "Черновик" },
+      },
+      "test-password-1",
+    );
+    assert.equal(hidden.statusCode, 200, hidden.body);
+    const visible = JSON.parse((await call("GET", "content")).body);
+    assert.deepEqual(
+      visible.popups.map((item) => item.id),
+      ["vesna"],
+    );
+    assert.equal(visible.popups[0].code, "VESNA");
+    const ordered = JSON.parse(
+      (
+        await call("POST", "order", {
+          name: "Анна",
+          contact: "+7 913 000-00-00",
+          note: "",
+          offer: "vesna",
+          items: [{ id: "vaza-12", qty: 2 }],
+        })
+      ).body,
+    );
+    assert.equal(ordered.total, 1800);
+    assert.equal(ordered.offer.off, 200);
+    assert.equal(ordered.offer.value, 10);
+    const forged = JSON.parse(
+      (
+        await call("POST", "order", {
+          name: "Анна",
+          contact: "+7 913 000-00-00",
+          note: "",
+          offer: { code: "VESNA", value: 90 },
+          items: [{ id: "vaza-12", qty: 1 }],
+        })
+      ).body,
+    );
+    assert.equal(forged.total, 1000);
+    assert.equal(forged.offer, null);
+    const gift = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-popup",
+        create: true,
+        popup: {
+          id: "svecha",
+          enabled: true,
+          title: "Свеча в подарок",
+          text: "К заказу приложим маленькую свечу.",
+          kind: "gift",
+          mode: "",
+          value: 0,
+          gift: "маленькая свеча",
+          code: "GIFT",
+          pages: ["cart"],
+          delay: 0,
+          repeat: "visit",
+        },
+      },
+      "test-password-1",
+    );
+    assert.equal(gift.statusCode, 200, gift.body);
+    const withGift = JSON.parse(
+      (
+        await call("POST", "order", {
+          name: "Анна",
+          contact: "+7 913 000-00-00",
+          note: "",
+          offer: "gift",
+          items: [{ id: "vaza-12", qty: 1 }],
+        })
+      ).body,
+    );
+    assert.equal(withGift.total, 1000);
+    assert.equal(withGift.offer.kind, "gift");
+    assert.equal(withGift.offer.gift, "маленькая свеча");
+    const listed = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
+    const stored = listed.orders.find((order) => order.number === withGift.number);
+    const resized = JSON.parse(
+      (
+        await call(
+          "POST",
+          "admin",
+          {
+            action: "update-order",
+            key: stored.key,
+            status: "work",
+            adminNote: "",
+            items: [{ id: "vaza-12", qty: 2 }],
+          },
+          "test-password-1",
+        )
+      ).body,
+    );
+    assert.equal(resized.order.total, 2000);
+    assert.equal(resized.order.offer.gift, "маленькая свеча");
   } finally {
     for (const [key, value] of Object.entries({
       LOCAL_ROOT: previous.root,

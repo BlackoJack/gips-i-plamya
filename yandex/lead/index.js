@@ -1,7 +1,7 @@
 /**
  * Yandex Cloud Functions: публичный каталог и админка.
  *
- * GET /api/content — тексты, контакт, полки и опубликованные изделия.
+ * GET /api/content — тексты, контакт, полки, опубликованные изделия и включённые окна.
  * POST /api/admin — пароль в заголовке x-admin-password. В ответ и логи он не попадает.
  * DATA_BUCKET — закрытый JSON content/site.json, включая черновики.
  * SITE_BUCKET — фото media/{id}/{имя}.jpg, их отдаёт шлюз вместе с сайтом.
@@ -319,6 +319,58 @@ function orderTotal(items) {
   return items.reduce((sum, item) => sum + item.price * item.qty, 0);
 }
 
+function offerView(offer) {
+  if (!offer || typeof offer !== "object") return null;
+  if (offer.kind !== "discount" && offer.kind !== "gift") return null;
+  const code = cleanCode(offer.code);
+  if (!code) return null;
+  const value = Number.isInteger(offer.value) ? offer.value : 0;
+  const off = Number.isInteger(offer.off) && offer.off >= 0 ? offer.off : 0;
+  return {
+    id: cleanId(offer.id) || "",
+    kind: offer.kind,
+    title: cleanLine(offer.title, 80) || "",
+    code,
+    gift: cleanLine(offer.gift, 120) || "",
+    mode: offer.mode === "amount" ? "amount" : "percent",
+    value,
+    off,
+  };
+}
+
+function discountOff(base, offer) {
+  if (base == null || !offer || offer.kind !== "discount") return 0;
+  const value = Number.isInteger(offer.value) ? offer.value : 0;
+  if (offer.mode === "amount") return Math.min(base, Math.max(0, value));
+  return Math.min(base, Math.floor((base * Math.max(0, value)) / 100));
+}
+
+function settle(items, offer) {
+  const base = orderTotal(items);
+  const view = offerView(offer);
+  if (!view) return { total: base, offer: null };
+  const off = discountOff(base, view);
+  return { total: base == null ? null : base - off, offer: { ...view, off } };
+}
+
+function applyOffer(content, rawCode, items) {
+  const code = cleanCode(rawCode);
+  const popup = code
+    ? (content.popups || []).find((item) => item.enabled && item.code === code && item.kind !== "message")
+    : null;
+  if (!popup) return settle(items, null);
+  return settle(items, {
+    id: popup.id,
+    kind: popup.kind,
+    title: popup.title,
+    code: popup.code,
+    gift: popup.gift,
+    mode: popup.mode,
+    value: popup.value,
+    off: 0,
+  });
+}
+
 function editedItems(rows, content, previous) {
   if (!Array.isArray(rows) || rows.length < 1 || rows.length > 30) return null;
   const seen = new Set();
@@ -503,6 +555,89 @@ function checkProducts(input, categories) {
   return { ok: true, value: products };
 }
 
+const POPUP_PAGES = new Set(["home", "catalog", "product", "cart"]);
+
+function cleanCode(value) {
+  const code = String(value ?? "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{3,12}$/.test(code)) return "";
+  return code;
+}
+
+function checkPopup(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return fail("validation");
+  const id = cleanId(input.id);
+  if (!id) return fail("popup_id");
+  const title = cleanRequired(input.title, 80);
+  const text = cleanRequired(input.text, 400);
+  if (!title || !text) return fail("popup_text");
+  if (typeof input.enabled !== "boolean") return fail("validation");
+  if (input.kind !== "message" && input.kind !== "discount" && input.kind !== "gift") return fail("validation");
+  if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 4) return fail("validation");
+  const pages = [];
+  for (const page of input.pages) {
+    if (!POPUP_PAGES.has(page) || pages.includes(page)) return fail("validation");
+    pages.push(page);
+  }
+  if (!Number.isInteger(input.delay) || input.delay < 0 || input.delay > 30) return fail("validation");
+  if (input.repeat !== "once" && input.repeat !== "visit") return fail("validation");
+  let mode = "";
+  let value = 0;
+  let gift = "";
+  let code = "";
+  if (input.kind === "discount") {
+    if (input.mode !== "percent" && input.mode !== "amount") return fail("validation");
+    if (!Number.isInteger(input.value)) return fail("popup_discount");
+    if (input.mode === "percent" && (input.value < 1 || input.value > 40)) return fail("popup_discount");
+    if (input.mode === "amount" && (input.value < 1 || input.value > 20000)) return fail("popup_discount");
+    mode = input.mode;
+    value = input.value;
+    code = cleanCode(input.code);
+    if (!code) return fail("popup_code");
+  } else if (input.kind === "gift") {
+    gift = cleanRequired(input.gift, 120);
+    if (!gift) return fail("popup_text");
+    code = cleanCode(input.code);
+    if (!code) return fail("popup_code");
+  }
+  return {
+    ok: true,
+    value: {
+      id,
+      enabled: input.enabled,
+      title,
+      text,
+      kind: input.kind,
+      mode,
+      value,
+      gift,
+      code,
+      pages,
+      delay: input.delay,
+      repeat: input.repeat,
+    },
+  };
+}
+
+function checkPopups(input) {
+  if (input == null) return { ok: true, value: [] };
+  if (!Array.isArray(input) || input.length > 8) return fail("validation");
+  const popups = [];
+  const ids = new Set();
+  const codes = new Set();
+  for (const item of input) {
+    const checked = checkPopup(item);
+    if (!checked.ok) return checked;
+    if (ids.has(checked.value.id)) return fail("popup_id");
+    if (checked.value.code) {
+      if (codes.has(checked.value.code)) return fail("popup_code");
+      codes.add(checked.value.code);
+    }
+    ids.add(checked.value.id);
+    popups.push(checked.value);
+  }
+  return { ok: true, value: popups };
+}
+
 function checkContent(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail("validation");
   const contacts = checkContacts(input.contacts);
@@ -515,6 +650,8 @@ function checkContent(input) {
   if (!categories.ok) return categories;
   const products = checkProducts(input.products, categories.value);
   if (!products.ok) return products;
+  const popups = checkPopups(input.popups);
+  if (!popups.ok) return popups;
   return {
     ok: true,
     value: {
@@ -523,6 +660,7 @@ function checkContent(input) {
       texts: texts.value,
       categories: categories.value,
       products: products.value,
+      popups: popups.value,
     },
   };
 }
@@ -539,6 +677,7 @@ function toPublic(content) {
     texts: content.texts,
     categories: content.categories,
     products: content.products.filter((product) => product.published),
+    popups: (content.popups || []).filter((popup) => popup.enabled),
   };
 }
 
@@ -568,6 +707,7 @@ function mergeContent(remote, seed) {
     texts: base.texts,
     categories,
     products,
+    popups: base.popups,
   });
   if (!merged) return { ok: false };
   return { ok: true, value: merged, changed: JSON.stringify(merged) !== JSON.stringify(base) };
@@ -1023,12 +1163,19 @@ function orderText(order) {
     const sum = item.price == null ? "цену напишем" : moneyLine(item.price * item.qty);
     return `${item.id}  ${item.title}  ${item.qty} шт  ${item.price == null ? "цену напишем" : moneyLine(item.price)}  ${sum}`;
   });
+  const offer = offerView(order.offer);
+  const offerLine = !offer
+    ? ""
+    : offer.kind === "gift"
+      ? `Подарок: ${offer.gift} (${offer.code})`
+      : `Скидка ${offer.code}: ${offer.mode === "percent" ? `${offer.value}%` : moneyLine(offer.value)}, минус ${moneyLine(offer.off)}`;
   return [
     `Заказ ${order.number}`,
     "",
     `Имя: ${order.name}`,
     `Контакт: ${order.contact}`,
     order.note ? `Комментарий: ${order.note}` : "",
+    offerLine,
     "",
     "Артикул  Название  Количество  Цена  Сумма",
     ...lines,
@@ -1076,6 +1223,7 @@ function publicOrder(data, key) {
     adminNote: String(data.adminNote || "").slice(0, 2000),
     items: Array.isArray(data.items) ? data.items : [],
     total: Number.isInteger(data.total) ? data.total : null,
+    offer: offerView(data.offer),
     at: String(data.at || ""),
     mail: data.mail === true,
     telegram: data.telegram === true,
@@ -1126,8 +1274,7 @@ async function handleOrder(event, method) {
     seen.add(id);
     items.push({ id, title: product.title, qty, price: product.price });
   }
-  const priced = items.every((item) => item.price != null);
-  const total = priced ? items.reduce((sum, item) => sum + item.price * item.qty, 0) : null;
+  const priced = applyOffer(content, body.offer, items);
   const n = await takeOrderNumber();
   if (!n) return json(502, { ok: false, error: "save_failed" });
   const number = `ГП-${n}`;
@@ -1137,11 +1284,12 @@ async function handleOrder(event, method) {
     contact,
     note,
     items,
-    total,
+    total: priced.total,
     status: "new",
     adminNote: "",
     at: new Date().toISOString(),
   };
+  if (priced.offer) record.offer = priced.offer;
   const key = `orders/${n}.json`;
   const saved = await s3(dataBucket(), "PUT", key, {
     body: `${JSON.stringify(record, null, 2)}\n`,
@@ -1162,7 +1310,7 @@ async function handleOrder(event, method) {
   } catch {
     /* заказ уже сохранён */
   }
-  return json(200, { ok: true, number, mail: delivery.mail, total, items });
+  return json(200, { ok: true, number, mail: delivery.mail, total: record.total, items, offer: record.offer || null });
 }
 
 async function handleContent(method) {
@@ -1208,6 +1356,7 @@ async function handleAdmin(event, method) {
       texts: texts.value,
       categories: categories.value,
       products: current.products,
+      popups: current.popups,
     });
     if (!next) return json(422, { ok: false, error: "validation" });
     const notify = sanitizeNotify(body.notify || {}, await readNotify());
@@ -1215,6 +1364,37 @@ async function handleAdmin(event, method) {
     if (!(await writeContent(next))) return json(502, { ok: false, error: "save_failed" });
     if (!(await writeNotify(notify))) return json(502, { ok: false, error: "save_failed" });
     return json(200, { ok: true, content: next, notify });
+  }
+
+  if (action === "save-popup") {
+    const checked = checkPopup(body.popup);
+    if (!checked.ok) return json(422, { ok: false, error: checked.error });
+    const popups = current.popups || [];
+    const exists = popups.some((popup) => popup.id === checked.value.id);
+    if (body.create === true && exists) return json(409, { ok: false, error: "popup_id" });
+    if (body.create !== true && !exists) return json(404, { ok: false, error: "not_found" });
+    if (checked.value.code && popups.some((popup) => popup.id !== checked.value.id && popup.code === checked.value.code)) {
+      return json(422, { ok: false, error: "popup_code" });
+    }
+    const nextPopups = exists
+      ? popups.map((popup) => (popup.id === checked.value.id ? checked.value : popup))
+      : popups.concat(checked.value);
+    const next = sanitizeContent({ ...current, popups: nextPopups });
+    if (!next) return json(422, { ok: false, error: "validation" });
+    if (!(await writeContent(next))) return json(502, { ok: false, error: "save_failed" });
+    return json(200, { ok: true, content: next });
+  }
+
+  if (action === "delete-popup") {
+    const id = cleanId(body.id);
+    if (!(current.popups || []).some((popup) => popup.id === id)) return json(404, { ok: false, error: "not_found" });
+    const next = sanitizeContent({
+      ...current,
+      popups: current.popups.filter((popup) => popup.id !== id),
+    });
+    if (!next) return json(422, { ok: false, error: "validation" });
+    if (!(await writeContent(next))) return json(502, { ok: false, error: "save_failed" });
+    return json(200, { ok: true, content: next });
   }
 
   if (action === "save-product") {
@@ -1327,7 +1507,10 @@ async function handleAdmin(event, method) {
       if (!edited) return json(422, { ok: false, error: "validation" });
       items = edited;
     }
-    const next = { ...data, status: body.status, adminNote, items, total: orderTotal(items) };
+    const settled = settle(items, data.offer);
+    const next = { ...data, status: body.status, adminNote, items, total: settled.total };
+    if (settled.offer) next.offer = settled.offer;
+    else delete next.offer;
     const written = await s3(dataBucket(), "PUT", body.key, {
       body: `${JSON.stringify(next, null, 2)}\n`,
       contentType: "application/json",

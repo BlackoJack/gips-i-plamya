@@ -14,6 +14,7 @@ const root = href("/").replace(/\/$/, "");
     </p>
     <form id="order-form" class="mt-8 grid max-w-2xl gap-5" hidden>
       <ul class="grid gap-4" data-cart-lines></ul>
+      <p class="cart-offer" data-cart-offer hidden></p>
       <p class="text-xl" data-cart-total></p>
       <label class="grid gap-2">
         Имя
@@ -50,12 +51,33 @@ const root = href("/").replace(/\/$/, "");
     const form = document.getElementById("order-form");
     const empty = document.querySelector("[data-cart-empty]");
     const lines = document.querySelector("[data-cart-lines]");
+    const offerNode = document.querySelector("[data-cart-offer]");
     const totalNode = document.querySelector("[data-cart-total]");
     const statusNode = document.querySelector("[data-order-status]");
     const done = document.querySelector("[data-order-done]");
     const numberNode = document.querySelector("[data-order-number]");
     const root = document.querySelector("[data-root]")?.getAttribute("data-root") || "";
     let catalog = [];
+    let popups = [];
+
+    function readOfferCode() {
+      return String(localStorage.getItem("gips-offer") || "")
+        .trim()
+        .toUpperCase();
+    }
+
+    function activeOffer() {
+      const code = readOfferCode();
+      if (!/^[A-Z0-9]{3,12}$/.test(code)) return null;
+      return popups.find((popup) => popup.code === code && popup.kind !== "message") || null;
+    }
+
+    function offerOff(sum, offer) {
+      if (!offer || offer.kind !== "discount") return 0;
+      const value = Number(offer.value) || 0;
+      if (offer.mode === "amount") return Math.min(sum, value);
+      return Math.min(sum, Math.floor((sum * value) / 100));
+    }
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -102,8 +124,30 @@ const root = href("/").replace(/\/$/, "");
           return `<li class="cart-line"><a class="cart-product" href="${escapeHtml(href)}">${photo}<span><span class="block text-sm text-quiet">${escapeHtml(row.id)}</span><span class="cart-title">${escapeHtml(title)}</span><span class="mt-2 block">${escapeHtml(priceText)}</span></span></a><div class="cart-actions"><label class="flex items-center gap-2">Шт<input class="field w-20" data-qty="${escapeHtml(row.id)}" type="number" min="1" max="20" value="${row.qty}"></label><button class="cart-remove" type="button" data-remove="${escapeHtml(row.id)}">Убрать</button></div></li>`;
         })
         .join("");
+      const offer = activeOffer();
+      const off = later ? 0 : offerOff(known, offer);
+      if (offerNode instanceof HTMLElement) {
+        offerNode.replaceChildren();
+        if (!offer) offerNode.hidden = true;
+        else {
+          offerNode.hidden = false;
+          const label = document.createElement("span");
+          if (offer.kind === "gift") label.textContent = `Подарок: ${offer.gift || offer.title}`;
+          else if (later) label.textContent = `Скидка ${offer.mode === "amount" ? money(Number(offer.value) || 0) : `${offer.value}%`} посчитается, когда будут все цены.`;
+          else label.textContent = `Скидка ${offer.mode === "amount" ? money(Number(offer.value) || 0) : `${offer.value}%`}: −${money(off)}`;
+          const clear = document.createElement("button");
+          clear.type = "button";
+          clear.className = "cart-remove";
+          clear.dataset.offerClear = "";
+          clear.textContent = "Убрать";
+          offerNode.append(label, clear);
+        }
+      }
       if (totalNode) {
-        totalNode.textContent = later ? `Известная сумма ${money(known)}. Остальное напишем в переписке.` : `Итого ${money(known)}`;
+        const payable = known - off;
+        totalNode.textContent = later
+          ? `Известная сумма ${money(known)}. Остальное напишем в переписке.`
+          : `Итого ${money(payable)}`;
       }
       lines.querySelectorAll("img.cart-photo").forEach((img) => {
         img.addEventListener("error", () => {
@@ -121,11 +165,19 @@ const root = href("/").replace(/\/$/, "");
         if (!response.ok) return;
         const data = await response.json();
         catalog = Array.isArray(data.products) ? data.products : [];
+        popups = Array.isArray(data.popups) ? data.popups : [];
       } catch {
         catalog = [];
       }
       paint();
     }
+
+    offerNode?.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest("[data-offer-clear]")) return;
+      localStorage.removeItem("gips-offer");
+      paint();
+    });
 
     lines?.addEventListener("click", (event) => {
       const target = event.target;
@@ -166,6 +218,7 @@ const root = href("/").replace(/\/$/, "");
             contact: String(data.get("contact") || ""),
             note: String(data.get("note") || ""),
             company: String(data.get("company") || ""),
+            offer: readOfferCode(),
             items: cart.map((row) => ({ id: row.id, qty: row.qty })),
           }),
         });
@@ -178,6 +231,7 @@ const root = href("/").replace(/\/$/, "");
           return;
         }
         localStorage.removeItem(cartKey);
+        localStorage.removeItem("gips-offer");
         document.dispatchEvent(new CustomEvent("gips-cart"));
         form.hidden = true;
         if (empty instanceof HTMLElement) empty.hidden = true;
@@ -189,6 +243,7 @@ const root = href("/").replace(/\/$/, "");
     });
 
     document.addEventListener("gips-cart", paint);
+    document.addEventListener("gips-offer", paint);
     loadCatalog();
   </script>
 </Base>

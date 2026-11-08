@@ -359,6 +359,110 @@ html[data-live-shelf]:not([data-content-ready]) [data-catalog-empty] {
   box-shadow: 0 -8px 24px rgba(34, 19, 9, 0.08);
 }
 
+.piece {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.piece-link {
+  display: block;
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
+.piece-photo {
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.piece-cart {
+  margin-top: 1rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .piece-cart {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
+.popup-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: end center;
+  padding: max(1rem, env(safe-area-inset-bottom)) 1rem 1rem;
+  background: rgba(34, 19, 9, 0.28);
+}
+
+.popup-card {
+  position: relative;
+  width: min(26rem, 100%);
+  padding: 1.6rem 1.35rem 1.35rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 22px 50px rgba(34, 19, 9, 0.2);
+}
+
+.popup-close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.popup-title {
+  margin: 0.7rem 0 0;
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  line-height: 0.95;
+}
+
+.popup-text {
+  margin: 0.8rem 0 0;
+}
+
+.popup-perk {
+  margin: 0.8rem 0 0;
+  color: var(--color-flame);
+}
+
+.popup-take {
+  margin-top: 1.15rem;
+  width: 100%;
+}
+
+.cart-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+@media (min-width: 720px) {
+  .popup-layer {
+    place-items: center;
+    padding: 1.5rem;
+  }
+
+  .popup-take {
+    width: auto;
+  }
+}
+
 .handmade {
   display: inline-flex;
   align-items: center;
@@ -388,8 +492,18 @@ html[data-live-shelf]:not([data-content-ready]) [data-catalog-empty] {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .rise {
+  .rise,
+  .popup-card {
     animation: rise 280ms var(--ease-shelf) both;
+  }
+
+  .piece-photo img {
+    transition: scale 500ms var(--ease-shelf);
+  }
+
+  .piece:hover .piece-photo img,
+  .piece:focus-within .piece-photo img {
+    scale: 1.035;
   }
 }
 

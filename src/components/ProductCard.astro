@@ -18,22 +18,27 @@ const cover = imagesOf(product)[0];
 const price = product.data.price === null ? content.product.priceLater : money(product.data.price);
 ---
 
-<a href={href(`/izdelie/${product.id}`)} class="group block">
-  <span class="photo-feather block">
-    <Image
-      src={cover}
-      alt=""
-      widths={[360, 540, 720]}
-      sizes="(min-width: 1024px) 340px, (min-width: 640px) 46vw, 100vw"
-      quality={74}
-      loading="lazy"
-      class="aspect-[4/5] w-full rounded-[2px] object-cover"
-    />
-  </span>
-  <p class="mt-4 text-sm text-quiet">{category?.title} · {product.id}</p>
-  <Title class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">
-    {product.data.title}
-  </Title>
-  <p class="mt-2 max-w-sm text-quiet">{product.data.summary}</p>
-  <p class="mt-2">{price}</p>
-</a>
+<article class="piece">
+  <a href={href(`/izdelie/${product.id}`)} class="piece-link group">
+    <span class="photo-feather piece-photo block">
+      <Image
+        src={cover}
+        alt=""
+        widths={[360, 540, 720]}
+        sizes="(min-width: 1024px) 340px, (min-width: 640px) 46vw, 100vw"
+        quality={74}
+        loading="lazy"
+        class="aspect-[4/5] w-full object-cover"
+      />
+    </span>
+    <p class="mt-4 text-sm text-quiet">{category?.title} · {product.id}</p>
+    <Title class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">
+      {product.data.title}
+    </Title>
+    <p class="mt-2 max-w-sm text-quiet">{product.data.summary}</p>
+    <p class="mt-2">{price}</p>
+  </a>
+  <button class="btn btn-ink piece-cart" type="button" data-add-cart={product.id} data-cart-label>
+    {content.product.want}
+  </button>
+</article>

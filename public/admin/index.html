@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>Админка — Гипс и пламя</title>
+    <link id="admin-icon" rel="icon" href="/admin/favicon.svg" type="image/svg+xml" />
+    <script>
+      (function () {
+        var at = location.pathname.indexOf("/admin");
+        var prefix = at >= 0 ? location.pathname.slice(0, at) : "";
+        var icon = document.getElementById("admin-icon");
+        if (icon) icon.href = prefix + "/admin/favicon.svg";
+      })();
+    </script>
     <style>
       :root {
         color-scheme: light;
@@ -22,8 +31,17 @@
         color: var(--ink);
         font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
       }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
       html { scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
-      main { max-width: 920px; margin: 0 auto; padding: 28px 16px 80px; }
+      main { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 28px 16px 80px; }
       body.has-dock main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
       button, a, input, textarea, select, .pager, .order { scroll-margin-bottom: 160px; }
       .mark {
@@ -50,6 +68,7 @@
         padding: 16px;
         margin-top: 14px;
         border-radius: 2px;
+        box-shadow: 0 14px 34px rgba(34, 19, 9, 0.04);
       }
       label { display: block; margin-top: 12px; font-size: 13px; }
       input, textarea, select {
@@ -276,7 +295,25 @@
         grid-template-areas: "photo name price" "photo meta price";
         margin-top: 8px;
       }
-      button.product-strip[aria-expanded="true"], button.fold-strip[aria-expanded="true"] {
+      button.popup-strip {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-top: 8px;
+        text-align: left;
+        background: white;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 500;
+        font-size: 15px;
+        padding: 12px 14px;
+        border-radius: 2px;
+      }
+      button.popup-strip span:first-child { min-width: 0; flex: 1; display: block; }
+      button.popup-strip .quiet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      button.product-strip[aria-expanded="true"], button.fold-strip[aria-expanded="true"], button.popup-strip[aria-expanded="true"] {
         border-color: var(--ink);
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
@@ -287,12 +324,29 @@
       .product-strip .strip-sum { grid-area: price; }
       button.fold-strip { display: flex; justify-content: space-between; margin-top: 8px; font-weight: 560; }
       .fold-body { border: 1px solid var(--line); border-top: 0; padding: 4px 14px 14px; background: #f7f3ec; }
-      .product-block .order, .product-block #product-form {
+      .product-block .order, .product-block #product-form, .product-block #popup-form {
         margin-top: 0;
         border-top: 0;
         background: #f7f3ec;
+        box-shadow: none;
       }
-      #product-form { border: 1px solid var(--line); border-top: 0; padding: 14px; }
+      #product-form, #popup-form { border: 1px solid var(--line); border-top: 0; padding: 14px; }
+      .sheet {
+        margin-top: 16px;
+        padding: 18px 16px 16px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+      }
+      .sheet strong {
+        display: block;
+        margin-top: 8px;
+        font-family: Palatino, "Palatino Linotype", Georgia, serif;
+        font-size: 32px;
+        font-weight: 560;
+        line-height: 0.95;
+      }
+      .sheet p { margin: 8px 0 0; }
+      .sheet .perk { color: var(--flame); }
       .shelf-filter { min-width: min(100%, 14rem); flex: 1 1 12rem; }
       .shelf-filter select { margin-top: 4px; }
       .dock {
@@ -343,7 +397,7 @@
     <main>
       <p class="mark">Гипс и пламя</p>
       <h1>Админка</h1>
-      <p class="note">Заказы, изделия и тексты мастерской. После сохранения обновите страницу сайта.</p>
+      <p class="note">Заказы, изделия, окна для гостей и тексты мастерской. После сохранения обновите страницу сайта.</p>
 
       <form id="login">
         <label>Пароль
@@ -357,6 +411,7 @@
         <nav class="tabs" aria-label="Разделы">
           <button type="button" data-tab="orders" aria-current="page">Заказы</button>
           <button type="button" data-tab="products">Изделия</button>
+          <button type="button" data-tab="popups">Окна</button>
           <button type="button" data-tab="site">Мастерская</button>
         </nav>
         <section class="card" data-panel="orders">
@@ -426,6 +481,82 @@
             <p id="product-status" class="status" role="status"></p>
           </form>
         </section>
+        <section class="card hidden" data-panel="popups">
+          <h2>Окна</h2>
+          <p class="note">Короткое окно для гостя. Одно на страницу: первое подходящее, которое он ещё не закрыл. Скидку и подарок считает сервер, когда гость забирает окно и оформляет заказ. Процент до 40, сумма до 20 000 ₽.</p>
+          <div class="row"><button type="button" id="add-popup">Новое окно</button></div>
+          <div id="popup-list"></div>
+          <form id="popup-form" class="hidden">
+            <h2 id="popup-heading">Окно</h2>
+            <label>Адрес
+              <input name="id" maxlength="41" autocomplete="off" spellcheck="false" />
+            </label>
+            <p class="note">Латиница, как артикул. После сохранения не меняется. Например, vesna.</p>
+            <div class="checks"><label><input type="checkbox" name="enabled" /> На сайте</label></div>
+            <label>Заголовок
+              <input name="title" maxlength="80" />
+            </label>
+            <label>Текст
+              <textarea name="text" maxlength="400"></textarea>
+            </label>
+            <label>Что это
+              <select name="kind">
+                <option value="message">Объявление</option>
+                <option value="discount">Скидка</option>
+                <option value="gift">Подарок</option>
+              </select>
+            </label>
+            <div data-popup-discount>
+              <label>Как считать
+                <select name="mode">
+                  <option value="percent">Процент</option>
+                  <option value="amount">Сумма, ₽</option>
+                </select>
+              </label>
+              <label>Размер
+                <input name="value" inputmode="numeric" />
+              </label>
+            </div>
+            <div data-popup-gift hidden>
+              <label>Подарок
+                <input name="gift" maxlength="120" />
+              </label>
+            </div>
+            <div data-popup-code>
+              <label>Код
+                <input name="code" maxlength="12" autocapitalize="characters" spellcheck="false" />
+              </label>
+              <p class="note">3–12 латинских букв и цифр. Гость его не вводит: код прикладывается к заказу, когда он нажимает «Забрать».</p>
+            </div>
+            <p class="note">Где показывать</p>
+            <div class="checks">
+              <label><input type="checkbox" name="page" value="home" /> Главная</label>
+              <label><input type="checkbox" name="page" value="catalog" /> Каталог</label>
+              <label><input type="checkbox" name="page" value="product" /> Карточка</label>
+              <label><input type="checkbox" name="page" value="cart" /> Корзина</label>
+            </div>
+            <label>Пауза, секунды
+              <input name="delay" inputmode="numeric" />
+            </label>
+            <label>Как часто
+              <select name="repeat">
+                <option value="once">Один раз</option>
+                <option value="visit">Раз за визит</option>
+              </select>
+            </label>
+            <div class="sheet" id="popup-preview">
+              <p class="mark">Мастерская</p>
+              <strong id="preview-title">Заголовок</strong>
+              <p id="preview-text"></p>
+              <p class="perk" id="preview-perk"></p>
+            </div>
+            <div class="row">
+              <button type="submit">Сохранить окно</button>
+              <button type="button" id="delete-popup" class="ghost">Удалить</button>
+            </div>
+            <p id="popup-status" class="status" role="status"></p>
+          </form>
+        </section>
         <div id="dock" class="dock">
           <p id="dock-status" class="dock-status" role="status"></p>
           <div class="dock-actions">
@@ -442,6 +573,10 @@
         product_images: "У опубликованного изделия нет фото. Снимите его с сайта или добавьте кадр.",
         product_text: "Нужны название, короткая строка и описание.",
         product_id: "Артикул — латиница, цифры, дефис или подчёркивание. Например, vaza-12.",
+        popup_id: "Адрес окна — латиница, цифры, дефис. Например, vesna. Такой адрес уже может быть занят.",
+        popup_text: "Нужны заголовок и текст. У подарка ещё короткое название подарка.",
+        popup_code: "Код — 3–12 латинских букв и цифр, без повторов.",
+        popup_discount: "Процент от 1 до 40 или сумма от 1 до 20 000 ₽.",
         category: "У полки нужны адрес латиницей, название и подпись. Адреса не повторяются.",
         category_in_use: "На этой полке ещё есть изделия. Сначала переложите их.",
         telegram: "Telegram: ссылка вида https://t.me/name.",
@@ -483,6 +618,9 @@
       const siteStatus = document.getElementById("site-status");
       const mailStatus = document.getElementById("mail-status");
       const productStatus = document.getElementById("product-status");
+      const popupForm = document.getElementById("popup-form");
+      const popupList = document.getElementById("popup-list");
+      const popupStatus = document.getElementById("popup-status");
 
       const passwordKey = "gips-admin";
       const passwordOf = () => sessionStorage.getItem(passwordKey) || "";
@@ -924,6 +1062,181 @@
         productForm.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
+      let openPopupId = "";
+      let popupCreating = false;
+      const popupPlaces = [
+        ["home", "Главная"],
+        ["catalog", "Каталог"],
+        ["product", "Карточка"],
+        ["cart", "Корзина"],
+      ];
+
+      function popupKindLabel(popup) {
+        if (popup.kind === "discount") return popup.mode === "amount" ? `скидка ${priceLabel(popup.value)}` : `скидка ${popup.value}%`;
+        if (popup.kind === "gift") return popup.gift ? `подарок: ${popup.gift}` : "подарок";
+        return "объявление";
+      }
+
+      function togglePopupFields() {
+        const kind = popupForm.elements.kind.value;
+        popupForm.querySelector("[data-popup-discount]").hidden = kind !== "discount";
+        popupForm.querySelector("[data-popup-gift]").hidden = kind !== "gift";
+        popupForm.querySelector("[data-popup-code]").hidden = kind === "message";
+      }
+
+      function paintPopupPreview() {
+        const title = popupForm.elements.title.value.trim() || "Заголовок";
+        const text = popupForm.elements.text.value.trim();
+        const kind = popupForm.elements.kind.value;
+        document.getElementById("preview-title").textContent = title;
+        document.getElementById("preview-text").textContent = text;
+        const perk = document.getElementById("preview-perk");
+        if (kind === "discount") {
+          const value = popupForm.elements.value.value.trim();
+          perk.textContent = value
+            ? `Скидка ${popupForm.elements.mode.value === "amount" ? `${value} ₽` : `${value}%`}. Она приложится к заказу.`
+            : "";
+        } else if (kind === "gift") {
+          const gift = popupForm.elements.gift.value.trim();
+          perk.textContent = gift ? `Подарок: ${gift}.` : "";
+        } else perk.textContent = "";
+      }
+
+      function fillPopup(popup, isNew) {
+        popupCreating = isNew;
+        popupForm.elements.id.value = popup.id || "";
+        popupForm.elements.id.readOnly = !isNew;
+        popupForm.elements.enabled.checked = popup.enabled !== false;
+        popupForm.elements.title.value = popup.title || "";
+        popupForm.elements.text.value = popup.text || "";
+        popupForm.elements.kind.value = popup.kind || "message";
+        popupForm.elements.mode.value = popup.mode === "amount" ? "amount" : "percent";
+        popupForm.elements.value.value = popup.kind === "discount" ? String(popup.value ?? "") : "";
+        popupForm.elements.gift.value = popup.gift || "";
+        popupForm.elements.code.value = popup.code || "";
+        popupForm.elements.delay.value = String(Number.isInteger(popup.delay) ? popup.delay : 2);
+        popupForm.elements.repeat.value = popup.repeat === "visit" ? "visit" : "once";
+        const pages = new Set(popup.pages || ["home"]);
+        for (const box of popupForm.querySelectorAll('input[name="page"]')) box.checked = pages.has(box.value);
+        const heading = document.getElementById("popup-heading");
+        heading.hidden = !isNew;
+        heading.textContent = "Новое окно";
+        document.getElementById("delete-popup").classList.toggle("hidden", isNew);
+        togglePopupFields();
+        paintPopupPreview();
+        popupStatus.textContent = "";
+        popupForm.classList.remove("hidden");
+        syncDock();
+      }
+
+      function collectPopup() {
+        const id = popupForm.elements.id.value.trim();
+        if (!/^[a-z0-9][a-z0-9_-]{0,40}$/.test(id)) return { error: errors.popup_id };
+        const title = popupForm.elements.title.value.trim();
+        const text = popupForm.elements.text.value.trim();
+        if (!title || title.length > 80 || !text || text.length > 400) return { error: errors.popup_text };
+        const pages = [...popupForm.querySelectorAll('input[name="page"]:checked')].map((box) => box.value);
+        if (!pages.length) return { error: "Отметьте, где показывать окно." };
+        const delay = Number(String(popupForm.elements.delay.value).trim());
+        if (!Number.isInteger(delay) || delay < 0 || delay > 30) return { error: "Пауза — целое число секунд от 0 до 30." };
+        const kind = popupForm.elements.kind.value;
+        const popup = {
+          id,
+          enabled: popupForm.elements.enabled.checked,
+          title,
+          text,
+          kind,
+          mode: "",
+          value: 0,
+          gift: "",
+          code: "",
+          pages,
+          delay,
+          repeat: popupForm.elements.repeat.value === "visit" ? "visit" : "once",
+        };
+        if (kind === "discount") {
+          popup.mode = popupForm.elements.mode.value === "amount" ? "amount" : "percent";
+          const value = Number(String(popupForm.elements.value.value).trim());
+          const badPercent = popup.mode === "percent" && (value < 1 || value > 40);
+          const badAmount = popup.mode === "amount" && (value < 1 || value > 20000);
+          if (!Number.isInteger(value) || badPercent || badAmount) return { error: errors.popup_discount };
+          popup.value = value;
+          popup.code = popupForm.elements.code.value.trim().toUpperCase();
+          if (!/^[A-Z0-9]{3,12}$/.test(popup.code)) return { error: errors.popup_code };
+        } else if (kind === "gift") {
+          popup.gift = popupForm.elements.gift.value.trim();
+          if (!popup.gift || popup.gift.length > 120) return { error: errors.popup_text };
+          popup.code = popupForm.elements.code.value.trim().toUpperCase();
+          if (!/^[A-Z0-9]{3,12}$/.test(popup.code)) return { error: errors.popup_code };
+        }
+        return { popup };
+      }
+
+      function renderPopupList() {
+        popupForm.remove();
+        popupList.replaceChildren();
+        const popups = content.popups || [];
+        if (openPopupId === "new") {
+          const fresh = document.createElement("div");
+          fresh.className = "product-block";
+          fresh.append(popupForm);
+          popupList.append(fresh);
+        }
+        if (!popups.length && openPopupId !== "new") {
+          const empty = document.createElement("p");
+          empty.className = "note";
+          empty.textContent = "Пока нет окон.";
+          popupList.append(empty);
+          popupForm.classList.add("hidden");
+          popupList.after(popupForm);
+          syncDock();
+          return;
+        }
+        let placed = openPopupId === "new";
+        for (const popup of popups) {
+          const open = openPopupId === popup.id;
+          const block = document.createElement("div");
+          block.className = "product-block";
+          const strip = document.createElement("button");
+          strip.type = "button";
+          strip.className = "popup-strip";
+          strip.setAttribute("aria-expanded", open ? "true" : "false");
+          const name = document.createElement("span");
+          const title = document.createElement("span");
+          title.className = "product-name";
+          title.textContent = popup.title || popup.id;
+          const meta = document.createElement("span");
+          meta.className = "quiet";
+          const where = popupPlaces.filter(([value]) => (popup.pages || []).includes(value)).map(([, label]) => label);
+          meta.textContent = [popupKindLabel(popup), where.join(", "), popup.enabled ? "на сайте" : "скрыто"].filter(Boolean).join(" · ");
+          name.append(title, document.createElement("br"), meta);
+          const state = document.createElement("span");
+          state.textContent = popup.enabled ? "вкл" : "выкл";
+          strip.append(name, state);
+          strip.addEventListener("click", () => {
+            if (openPopupId === popup.id) {
+              openPopupId = "";
+              popupCreating = false;
+              popupForm.classList.add("hidden");
+            } else openPopupId = popup.id;
+            renderPopupList();
+            if (openPopupId === popup.id) fillPopup(popup, false);
+          });
+          block.append(strip);
+          if (open) {
+            popupForm.classList.remove("hidden");
+            block.append(popupForm);
+            placed = true;
+          }
+          popupList.append(block);
+        }
+        if (!placed) {
+          popupForm.classList.add("hidden");
+          popupList.after(popupForm);
+        }
+        syncDock();
+      }
+
       let currentPanel = "orders";
 
       function showPanel(name) {
@@ -940,9 +1253,13 @@
 
       function syncDock() {
         const save = document.getElementById("dock-save");
+        const popupOpen = currentPanel === "popups" && !popupForm.classList.contains("hidden");
         const productOpen = currentPanel === "products" && !productForm.classList.contains("hidden");
         const orderOpen = currentPanel === "orders" && Boolean(ordersBox.querySelector("[data-order-save]"));
-        if (productOpen) {
+        if (popupOpen) {
+          save.textContent = "Сохранить окно";
+          save.dataset.mode = "popup";
+        } else if (productOpen) {
           save.textContent = "Сохранить изделие";
           save.dataset.mode = "product";
         } else if (orderOpen) {
@@ -1214,7 +1531,21 @@
           function paintTotal() {
             const later = lines.some((item) => item.price == null);
             const sum = lines.reduce((acc, item) => acc + (item.price == null ? 0 : item.price * item.qty), 0);
-            total.textContent = later ? `Известная сумма ${priceLabel(sum)}. Остальное напишем в переписке.` : `Итого ${priceLabel(sum)}`;
+            const offer = order.offer;
+            let perk = "";
+            let payable = sum;
+            if (offer && offer.kind === "gift") perk = ` Подарок: ${offer.gift || offer.title}.`;
+            else if (offer && offer.kind === "discount" && later) perk = ` Скидка ${offer.code} посчитается, когда будут все цены.`;
+            else if (offer && offer.kind === "discount") {
+              const off = offer.mode === "amount"
+                ? Math.min(sum, Number(offer.value) || 0)
+                : Math.min(sum, Math.floor((sum * (Number(offer.value) || 0)) / 100));
+              payable = sum - off;
+              perk = ` Скидка ${offer.code} −${priceLabel(off)}.`;
+            }
+            total.textContent = later
+              ? `Известная сумма ${priceLabel(sum)}. Остальное напишем в переписке.${perk}`
+              : `Итого ${priceLabel(payable)}.${perk}`;
           }
 
           function paintAdd() {
@@ -1393,6 +1724,7 @@
         fillTexts();
         renderCategories();
         renderProductList();
+        renderPopupList();
         await refreshOrders();
         loginForm.classList.add("hidden");
         desk.classList.remove("hidden");
@@ -1644,9 +1976,73 @@
         renderProductList();
       });
 
+      document.getElementById("add-popup").addEventListener("click", () => {
+        openPopupId = "new";
+        popupCreating = true;
+        renderPopupList();
+        fillPopup({ enabled: true, kind: "message", pages: ["home"], delay: 2, repeat: "once" }, true);
+        popupForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      popupForm.addEventListener("input", paintPopupPreview);
+      popupForm.addEventListener("change", () => {
+        togglePopupFields();
+        paintPopupPreview();
+      });
+
+      popupForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const collected = collectPopup();
+        if (collected.error) {
+          popupStatus.textContent = collected.error;
+          document.getElementById("dock-status").textContent = collected.error;
+          return;
+        }
+        popupStatus.textContent = "Сохраняю…";
+        document.getElementById("dock-status").textContent = "Сохраняю окно…";
+        document.getElementById("dock-save").disabled = true;
+        try {
+          const result = await admin("save-popup", { create: popupCreating, popup: collected.popup });
+          content = result.content;
+          openPopupId = collected.popup.id;
+          popupCreating = false;
+          renderPopupList();
+          const saved = (content.popups || []).find((item) => item.id === collected.popup.id);
+          if (saved) fillPopup(saved, false);
+          const text = "Окно сохранено. Обновите страницу сайта.";
+          popupStatus.textContent = text;
+          document.getElementById("dock-status").textContent = text;
+        } catch (error) {
+          popupStatus.textContent = message(error);
+          document.getElementById("dock-status").textContent = message(error);
+        } finally {
+          document.getElementById("dock-save").disabled = false;
+        }
+      });
+
+      document.getElementById("delete-popup").addEventListener("click", async () => {
+        if (popupCreating) return;
+        const id = popupForm.elements.id.value.trim();
+        if (!id || !confirm("Удалить это окно?")) return;
+        popupStatus.textContent = "Удаляю…";
+        try {
+          const result = await admin("delete-popup", { id });
+          content = result.content;
+          openPopupId = "";
+          popupCreating = false;
+          popupForm.classList.add("hidden");
+          renderPopupList();
+          document.getElementById("dock-status").textContent = "Окно удалено.";
+        } catch (error) {
+          popupStatus.textContent = message(error);
+          document.getElementById("dock-status").textContent = message(error);
+        }
+      });
+
       document.getElementById("dock-save").addEventListener("click", () => {
         const mode = document.getElementById("dock-save").dataset.mode;
-        if (mode === "product") productForm.requestSubmit();
+        if (mode === "popup") popupForm.requestSubmit();
+        else if (mode === "product") productForm.requestSubmit();
         else if (mode === "order") ordersBox.querySelector("[data-order-save]")?.click();
         else siteForm.requestSubmit();
       });

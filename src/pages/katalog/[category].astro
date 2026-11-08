@@ -23,6 +23,7 @@ const products = (await getPublished()).filter((product) => product.data.categor
 <Base
   title={`${category.title} — ${config.name}`}
   description={`${category.title} — ${category.line}. ${config.meta.description}`}
+  page="catalog"
 >
   <Catalog title={category.title} lede={category.line} current={category.slug} products={products} />
 </Base>

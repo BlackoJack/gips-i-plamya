@@ -6,6 +6,6 @@ import { getPublished } from "../../lib/products";
 const products = await getPublished();
 ---
 
-<Base>
+<Base page="catalog">
   <Catalog title="Изделия" current="all" products={products} />
 </Base>
