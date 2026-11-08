@@ -18,15 +18,18 @@ import still from "../assets/brand/still-life.jpg";
       <a class="btn btn-ink" href={href("/katalog")} data-text="hero.catalog">{content.hero.catalog}</a>
     </div>
   </div>
-  <Image
-    src={still}
-    alt={content.alts.hero}
-    widths={[420, 640, 840]}
-    sizes="(min-width: 768px) 46vw, 100vw"
-    format="jpg"
-    quality={78}
-    loading="eager"
-    fetchpriority="high"
-    class="h-auto w-full rounded-[2px]"
-  />
+  <figure class="m-0">
+    <Image
+      src={still}
+      alt={content.alts.hero}
+      widths={[420, 640, 840]}
+      sizes="(min-width: 768px) 46vw, 100vw"
+      format="jpg"
+      quality={78}
+      loading="eager"
+      fetchpriority="high"
+      class="h-auto w-full rounded-[2px]"
+    />
+    <figcaption class="handmade mt-4">Сделано вручную</figcaption>
+  </figure>
 </section>

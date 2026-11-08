@@ -1087,7 +1087,7 @@ async function listOrders() {
   if (!keys) return null;
   const newest = keys
     .sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, "")))
-    .slice(0, 40);
+    .slice(0, 100);
   const rows = await Promise.all(
     newest.map(async (key) => {
       const object = await s3(dataBucket(), "GET", key);

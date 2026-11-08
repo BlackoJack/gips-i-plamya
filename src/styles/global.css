@@ -301,6 +301,7 @@ footer .contact-row {
 }
 
 /* Категория на Яндексе открывает общую страницу каталога. Пока живые данные не пришли, чужие карточки не показываем. */
+html[data-live-shelf]:not([data-content-ready]) [data-catalog] .handmade,
 html[data-live-shelf]:not([data-content-ready]) [data-catalog-title],
 html[data-live-shelf]:not([data-content-ready]) [data-catalog-lede],
 html[data-live-shelf]:not([data-content-ready]) [data-catalog-nav],
@@ -311,6 +312,24 @@ html[data-live-shelf]:not([data-content-ready]) [data-catalog-empty] {
 
 .dock {
   box-shadow: 0 -8px 24px rgba(34, 19, 9, 0.08);
+}
+
+.handmade {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-flame);
+}
+
+.handmade::before {
+  content: "";
+  width: 1.15rem;
+  height: 1px;
+  background: currentColor;
+  flex: none;
 }
 
 .field {

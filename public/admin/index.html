@@ -22,48 +22,69 @@
         color: var(--ink);
         font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
       }
-      main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
-      h1 { font-size: 36px; letter-spacing: -0.03em; margin: 0; font-weight: 560; }
+      html { scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+      main { max-width: 920px; margin: 0 auto; padding: 28px 16px 80px; }
+      body.has-dock main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+      button, a, input, textarea, select, .pager, .order { scroll-margin-bottom: 160px; }
+      .mark {
+        margin: 0 0 6px;
+        color: var(--flame);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        font-family: Palatino, "Palatino Linotype", Georgia, serif;
+        font-size: clamp(40px, 8vw, 56px);
+        font-weight: 560;
+        letter-spacing: -0.03em;
+        line-height: 0.95;
+      }
       h2 { font-size: 22px; margin: 28px 0 8px; font-weight: 560; }
+      .card > h2:first-child, form.card > h2:first-child, form > h2:first-child { margin-top: 0; }
       p.note { color: var(--quiet); margin: 8px 0 0; }
       form, section.card {
         border: 1px solid var(--line);
-        background: #f7f3ec;
+        background: white;
         padding: 16px;
-        margin-top: 12px;
+        margin-top: 14px;
+        border-radius: 2px;
       }
       label { display: block; margin-top: 12px; font-size: 13px; }
       input, textarea, select {
         width: 100%;
+        min-height: 44px;
         margin-top: 4px;
         border: 1px solid var(--line);
         background: white;
         color: inherit;
         font: inherit;
-        padding: 8px 10px;
+        padding: 10px 12px;
       }
       textarea { min-height: 88px; resize: vertical; }
       button, .link {
         border: 0;
         background: var(--ink);
         color: var(--paper);
-        font: 600 13px/1 ui-sans-serif, system-ui, sans-serif;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        font: 600 15px/1 ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0;
         padding: 12px 14px;
+        min-height: 44px;
         cursor: pointer;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
       }
       button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
       button:disabled { opacity: 0.45; cursor: default; }
       .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
       .status { min-height: 1.2em; margin-top: 10px; }
-      .hidden { display: none; }
+      .hidden { display: none !important; }
       .checks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
       .checks label { display: flex; gap: 8px; align-items: center; margin: 0; }
-      .checks input { width: auto; margin: 0; }
+      .checks input { width: 1.15rem; height: 1.15rem; min-height: 0; margin: 0; }
       .category, .photo, .product-row {
         display: grid;
         gap: 8px;
@@ -76,7 +97,11 @@
       }
       .photo { grid-template-columns: 72px 1fr; align-items: center; }
       .photo img { width: 72px; height: 90px; object-fit: cover; background: var(--sand); }
-      .product-row { grid-template-columns: 1fr auto; align-items: center; }
+      .product-row { grid-template-columns: 1fr; align-items: center; }
+      .product-name { margin: 0; font-weight: 600; }
+      @media (min-width: 640px) {
+        .product-row { grid-template-columns: 1fr auto; }
+      }
       .quiet { color: var(--quiet); font-size: 14px; }
       .order {
         display: grid;
@@ -129,12 +154,141 @@
       @media (max-width: 640px) {
         .order select.order-status { width: 100%; }
       }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 18px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .tabs button {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 560;
+        padding: 10px 14px;
+        white-space: nowrap;
+        border-radius: 999px;
+      }
+      .tabs button[aria-current="page"] {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+      }
+      .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+      .filters button {
+        background: white;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 500;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 999px;
+      }
+      .filters button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+      }
+      .order-block { margin-top: 8px; }
+      button.order-strip {
+        width: 100%;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas: "num badge sum" "who who who";
+        gap: 4px 10px;
+        align-items: center;
+        text-align: left;
+        background: white;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 500;
+        font-size: 15px;
+        padding: 12px 14px;
+        border-radius: 2px;
+      }
+      button.order-strip[aria-expanded="true"] { border-color: var(--ink); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+      button.order-strip.is-quiet { color: var(--quiet); }
+      .strip-num { grid-area: num; font-weight: 650; font-variant-numeric: lining-nums; }
+      .strip-badge { grid-area: badge; justify-self: start; }
+      .strip-sum { grid-area: sum; justify-self: end; font-variant-numeric: lining-nums; white-space: nowrap; }
+      .strip-who { grid-area: who; color: var(--quiet); font-size: 14px; }
+      @media (min-width: 720px) {
+        button.order-strip {
+          grid-template-columns: 7.2rem auto minmax(0, 1fr) auto;
+          grid-template-areas: "num badge who sum";
+        }
+        .strip-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: var(--sand);
+        font-size: 12px;
+      }
+      .badge-work { background: #efe4d4; }
+      .badge-done { background: #e4efe4; color: #245032; }
+      .badge-cancelled { background: transparent; border: 1px solid var(--line); color: var(--quiet); }
+      .order-block .order { margin-top: 0; border-top: 0; background: #f7f3ec; }
+      .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+      .pager button {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .pager .quiet { margin: 0; }
+      .dock {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+        background: rgba(241, 237, 230, 0.96);
+        border-top: 1px solid var(--line);
+      }
+      .dock-status {
+        margin: 0;
+        flex: 1 1 140px;
+        min-width: 0;
+        color: var(--quiet);
+        font-size: 13px;
+      }
+      .dock-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      #dock-save { white-space: nowrap; }
+      #dock-site {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 12px 14px;
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      @media (max-width: 640px) {
+        .dock { flex-wrap: wrap; }
+        .dock-status { flex-basis: 100%; }
+        .dock-actions { width: 100%; }
+        .dock-actions button, .dock-actions a { flex: 1 1 140px; }
+      }
     </style>
   </head>
   <body>
     <main>
+      <p class="mark">Гипс и пламя</p>
       <h1>Админка</h1>
-      <p class="note">Тексты, контакты, полки, изделия и заказы. После сохранения обновите страницу сайта.</p>
+      <p class="note">Заказы, изделия и тексты мастерской. После сохранения обновите страницу сайта.</p>
 
       <form id="login">
         <label>Пароль
@@ -145,11 +299,17 @@
       </form>
 
       <div id="desk" class="hidden">
-        <section class="card">
+        <nav class="tabs" aria-label="Разделы">
+          <button type="button" data-tab="orders" aria-current="page">Заказы</button>
+          <button type="button" data-tab="products">Изделия</button>
+          <button type="button" data-tab="site">Мастерская</button>
+        </nav>
+        <section class="card" data-panel="orders">
           <h2>Заказы</h2>
+          <p class="note">Строка — номер, контакт и сумма. Нажмите, чтобы открыть. В списке последние 100 заказов.</p>
           <div id="orders"></div>
         </section>
-        <form id="site-form">
+        <form id="site-form" class="hidden" data-panel="site">
           <h2>Тексты</h2>
           <div id="texts"></div>
           <h2>Контакты</h2>
@@ -167,15 +327,16 @@
           <div id="categories"></div>
           <div class="row">
             <button type="button" id="add-category" class="ghost">Добавить полку</button>
-            <button type="submit">Сохранить тексты и полки</button>
-            <a class="link" href="/">Открыть сайт</a>
           </div>
           <p id="site-status" class="status" role="status"></p>
         </form>
 
-        <section class="card">
+        <section class="card hidden" data-panel="products">
           <h2>Изделия</h2>
           <p class="note">Черновик на сайте не виден. Чтобы опубликовать, нужны фото, короткая строка и описание. Первое фото — обложка.</p>
+          <label class="search">Найти
+            <input id="product-search" type="search" placeholder="Артикул или название" autocomplete="off" />
+          </label>
           <div class="row"><button type="button" id="add-product">Новое изделие</button></div>
           <div id="product-list"></div>
           <form id="product-form" class="hidden">
@@ -195,6 +356,13 @@
             <p id="product-status" class="status" role="status"></p>
           </form>
         </section>
+        <div id="dock" class="dock">
+          <p id="dock-status" class="dock-status" role="status"></p>
+          <div class="dock-actions">
+            <button type="button" id="dock-save">Сохранить</button>
+            <a id="dock-site" href="/">Открыть сайт</a>
+          </div>
+        </div>
       </div>
     </main>
     <script>
@@ -397,13 +565,35 @@
         return `${new Intl.NumberFormat("ru-RU").format(price)} ₽`;
       }
 
+      let productQuery = "";
+      let productPage = 1;
+      const PRODUCT_PAGE = 8;
+
       function renderProductList() {
         productList.replaceChildren();
-        for (const product of content.products) {
+        const query = productQuery.trim().toLowerCase();
+        const filtered = content.products.filter((product) => {
+          if (!query) return true;
+          return `${product.id} ${product.title}`.toLowerCase().includes(query);
+        });
+        if (!filtered.length) {
+          productList.textContent = content.products.length ? "Ничего не нашлось." : "Пока нет изделий.";
+          return;
+        }
+        const pages = Math.max(1, Math.ceil(filtered.length / PRODUCT_PAGE));
+        if (productPage > pages) productPage = pages;
+        const slice = filtered.slice((productPage - 1) * PRODUCT_PAGE, productPage * PRODUCT_PAGE);
+        for (const product of slice) {
           const row = document.createElement("div");
           row.className = "product-row";
-          const text = document.createElement("p");
-          text.textContent = `${product.id} — ${product.title} — ${priceLabel(product.price)} — ${product.published ? "на сайте" : "скрыто"}`;
+          const text = document.createElement("div");
+          const name = document.createElement("p");
+          name.className = "product-name";
+          name.textContent = product.title || product.id;
+          const meta = document.createElement("p");
+          meta.className = "quiet";
+          meta.textContent = `${product.id} · ${priceLabel(product.price)} · ${product.published ? "на сайте" : "скрыто"}`;
+          text.append(name, meta);
           const button = document.createElement("button");
           button.type = "button";
           button.className = "ghost";
@@ -412,6 +602,30 @@
           row.append(text, button);
           productList.append(row);
         }
+        if (pages < 2) return;
+        const pager = document.createElement("div");
+        pager.className = "pager";
+        const prev = document.createElement("button");
+        prev.type = "button";
+        prev.textContent = "Назад";
+        prev.disabled = productPage === 1;
+        prev.addEventListener("click", () => {
+          productPage -= 1;
+          renderProductList();
+        });
+        const label = document.createElement("p");
+        label.className = "quiet";
+        label.textContent = `${productPage} из ${pages}`;
+        const next = document.createElement("button");
+        next.type = "button";
+        next.textContent = "Дальше";
+        next.disabled = productPage === pages;
+        next.addEventListener("click", () => {
+          productPage += 1;
+          renderProductList();
+        });
+        pager.append(prev, label, next);
+        productList.append(pager);
       }
 
       function categorySelect(selected) {
@@ -510,8 +724,40 @@
         document.getElementById("delete-product").classList.toggle("hidden", isNew);
         renderPhotos();
         productStatus.textContent = isNew ? "Сохраните карточку, затем добавьте фото." : "";
+        document.getElementById("dock-status").textContent = productStatus.textContent;
         productForm.classList.remove("hidden");
+        syncDock();
         productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      let currentPanel = "orders";
+
+      function showPanel(name) {
+        currentPanel = name;
+        for (const button of document.querySelectorAll("[data-tab]")) {
+          if (button.dataset.tab === name) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        }
+        for (const panel of document.querySelectorAll("[data-panel]")) {
+          panel.classList.toggle("hidden", panel.dataset.panel !== name);
+        }
+        syncDock();
+      }
+
+      function syncDock() {
+        const save = document.getElementById("dock-save");
+        const productOpen = currentPanel === "products" && !productForm.classList.contains("hidden");
+        const orderOpen = currentPanel === "orders" && Boolean(ordersBox.querySelector("[data-order-save]"));
+        if (productOpen) {
+          save.textContent = "Сохранить изделие";
+          save.dataset.mode = "product";
+        } else if (orderOpen) {
+          save.textContent = "Сохранить заказ";
+          save.dataset.mode = "order";
+        } else {
+          save.textContent = "Сохранить";
+          save.dataset.mode = "site";
+        }
       }
 
       function collectSite() {
@@ -610,30 +856,136 @@
         ["cancelled", "Отменён"],
       ];
 
+      let loadedOrders = [];
+      let orderFilter = "all";
+      let orderPage = 1;
+      let openOrderKey = "";
+      const ORDER_PAGE = 8;
+
+      function orderSum(order) {
+        if (order.total == null) return "сумму напишем";
+        return priceLabel(order.total);
+      }
+
       function renderOrders(orders) {
+        loadedOrders = orders;
+        paintOrderList();
+      }
+
+      function paintOrderList() {
         ordersBox.replaceChildren();
-        if (!orders.length) {
-          ordersBox.textContent = "Пока пусто.";
+        const filters = document.createElement("div");
+        filters.className = "filters";
+        filters.setAttribute("role", "group");
+        filters.setAttribute("aria-label", "Статус заказа");
+        for (const [value, label] of [["all", "Все"], ...orderStatuses]) {
+          const count = value === "all"
+            ? loadedOrders.length
+            : loadedOrders.filter((order) => (order.status || "new") === value).length;
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.textContent = `${label} ${count}`;
+          chip.setAttribute("aria-pressed", orderFilter === value ? "true" : "false");
+          chip.addEventListener("click", () => {
+            orderFilter = value;
+            orderPage = 1;
+            paintOrderList();
+          });
+          filters.append(chip);
+        }
+        ordersBox.append(filters);
+
+        const filtered = loadedOrders.filter((order) => orderFilter === "all" || (order.status || "new") === orderFilter);
+        if (!loadedOrders.length || !filtered.length) {
+          const empty = document.createElement("p");
+          empty.className = "note";
+          empty.textContent = loadedOrders.length ? "В этом статусе заказов нет." : "Пока пусто.";
+          ordersBox.append(empty);
+          syncDock();
           return;
         }
-        for (const order of orders) {
+
+        const pages = Math.max(1, Math.ceil(filtered.length / ORDER_PAGE));
+        if (orderPage > pages) orderPage = pages;
+        const slice = filtered.slice((orderPage - 1) * ORDER_PAGE, orderPage * ORDER_PAGE);
+        for (const order of slice) {
+          const block = document.createElement("div");
+          block.className = "order-block";
+          const open = openOrderKey === order.key;
+          const strip = document.createElement("button");
+          strip.type = "button";
+          strip.className = order.status === "cancelled" ? "order-strip is-quiet" : "order-strip";
+          strip.setAttribute("aria-expanded", open ? "true" : "false");
+          const when = order.at
+            ? new Date(order.at).toLocaleString("ru-RU", { day: "numeric", month: "short" })
+            : "";
+          const num = document.createElement("span");
+          num.className = "strip-num";
+          num.textContent = order.number || "Заказ";
+          const badge = document.createElement("span");
+          const statusName = orderStatuses.find(([value]) => value === (order.status || "new"));
+          badge.className = `strip-badge badge badge-${order.status || "new"}`;
+          badge.textContent = statusName ? statusName[1] : "Новый";
+          const who = document.createElement("span");
+          who.className = "strip-who";
+          who.textContent = [order.name, order.contact, when].filter(Boolean).join(" · ");
+          const sum = document.createElement("span");
+          sum.className = "strip-sum";
+          sum.textContent = orderSum(order);
+          strip.append(num, badge, who, sum);
+          strip.addEventListener("click", () => {
+            openOrderKey = open ? "" : order.key;
+            paintOrderList();
+          });
+          block.append(strip);
+          if (open) block.append(buildOrderArticle(order));
+          ordersBox.append(block);
+        }
+        if (pages > 1) {
+          const pager = document.createElement("div");
+          pager.className = "pager";
+          const prev = document.createElement("button");
+          prev.type = "button";
+          prev.textContent = "Назад";
+          prev.disabled = orderPage === 1;
+          prev.addEventListener("click", () => {
+            orderPage -= 1;
+            paintOrderList();
+            ordersBox.scrollIntoView({ block: "start" });
+          });
+          const label = document.createElement("p");
+          label.className = "quiet";
+          label.textContent = `${orderPage} из ${pages}`;
+          const next = document.createElement("button");
+          next.type = "button";
+          next.textContent = "Дальше";
+          next.disabled = orderPage === pages;
+          next.addEventListener("click", () => {
+            orderPage += 1;
+            paintOrderList();
+            ordersBox.scrollIntoView({ block: "start" });
+          });
+          pager.append(prev, label, next);
+          ordersBox.append(pager);
+        }
+        syncDock();
+      }
+
+      function buildOrderArticle(order) {
           const article = document.createElement("article");
           article.className = order.status === "cancelled" ? "order is-cancelled" : "order";
 
           const head = document.createElement("div");
           head.className = "order-head";
           const who = document.createElement("div");
-          const title = document.createElement("p");
-          title.className = "order-number";
           const when = order.at ? new Date(order.at).toLocaleString("ru-RU") : "";
-          title.textContent = order.number || "Заказ";
           const person = document.createElement("p");
           person.className = "order-who";
           person.textContent = [order.name, when].filter(Boolean).join(" · ");
           const contact = document.createElement("p");
           contact.className = "quiet";
           contact.textContent = order.contact || "";
-          who.append(title, person, contact);
+          who.append(person, contact);
 
           const status = document.createElement("select");
           status.className = "order-status";
@@ -766,7 +1118,8 @@
           buttons.className = "row";
           const save = document.createElement("button");
           save.type = "button";
-          save.textContent = "Сохранить";
+          save.setAttribute("data-order-save", "");
+          save.textContent = "Сохранить заказ";
           const remove = document.createElement("button");
           remove.type = "button";
           remove.className = "ghost";
@@ -776,7 +1129,9 @@
           paintLines();
           save.addEventListener("click", async () => {
             state.textContent = "Сохраняю…";
+            document.getElementById("dock-status").textContent = "Сохраняю заказ…";
             save.disabled = true;
+            document.getElementById("dock-save").disabled = true;
             try {
               await admin("update-order", {
                 key: order.key,
@@ -785,25 +1140,32 @@
                 items: lines.map((item) => ({ id: item.id, qty: item.qty })),
               });
               await refreshOrders();
+              document.getElementById("dock-status").textContent = "Заказ сохранён.";
             } catch (error) {
               state.textContent = message(error);
+              document.getElementById("dock-status").textContent = message(error);
               save.disabled = false;
+            } finally {
+              document.getElementById("dock-save").disabled = false;
             }
           });
           remove.addEventListener("click", async () => {
             if (!confirm(`Удалить заказ ${order.number || ""}?`.trim())) return;
             state.textContent = "Удаляю…";
+            document.getElementById("dock-status").textContent = "Удаляю заказ…";
             try {
               await admin("delete-order", { key: order.key });
+              if (openOrderKey === order.key) openOrderKey = "";
               await refreshOrders();
+              document.getElementById("dock-status").textContent = "Заказ удалён.";
             } catch (error) {
               state.textContent = message(error);
+              document.getElementById("dock-status").textContent = message(error);
             }
           });
           buttons.append(save, remove);
           article.append(...pieces, noteLabel, buttons, state);
-          ordersBox.append(article);
-        }
+          return article;
       }
 
       async function refreshOrders() {
@@ -822,6 +1184,8 @@
         await refreshOrders();
         loginForm.classList.add("hidden");
         desk.classList.remove("hidden");
+        document.body.classList.add("has-dock");
+        syncDock();
       }
 
       async function movePhoto(index, shift) {
@@ -907,6 +1271,8 @@
       siteForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         siteStatus.textContent = "Сохраняю…";
+        document.getElementById("dock-status").textContent = "Сохраняю…";
+        document.getElementById("dock-save").disabled = true;
         try {
           const result = await admin("save-site", { site: collectSite(), notify: collectNotify() });
           content = result.content;
@@ -915,8 +1281,12 @@
           renderCategories();
           if (editing) renderPhotos();
           siteStatus.textContent = "Сохранено. Обновите страницу сайта.";
+          document.getElementById("dock-status").textContent = "Сохранено. Обновите страницу сайта.";
         } catch (error) {
           siteStatus.textContent = message(error);
+          document.getElementById("dock-status").textContent = message(error);
+        } finally {
+          document.getElementById("dock-save").disabled = false;
         }
       });
 
@@ -924,6 +1294,7 @@
         event.preventDefault();
         const button = event.currentTarget;
         mailStatus.textContent = "Проверяю почту…";
+        document.getElementById("dock-status").textContent = "Проверяю почту…";
         button.disabled = true;
         try {
           const result = await admin("test-mail", { notify: collectNotify() });
@@ -933,8 +1304,10 @@
             throw error;
           }
           mailStatus.textContent = "Письмо ушло. Проверьте входящие.";
+          document.getElementById("dock-status").textContent = mailStatus.textContent;
         } catch (error) {
           mailStatus.textContent = error.status >= 500 ? errors.smtp_timeout : message(error);
+          document.getElementById("dock-status").textContent = mailStatus.textContent;
         } finally {
           button.disabled = false;
         }
@@ -961,11 +1334,18 @@
       productForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         productStatus.textContent = "Сохраняю…";
+        document.getElementById("dock-status").textContent = "Сохраняю изделие…";
+        document.getElementById("dock-save").disabled = true;
         try {
           const saved = await persistProduct();
-          if (saved) productStatus.textContent = "Сохранено. Обновите страницу сайта.";
+          const text = saved ? "Изделие сохранено. Обновите страницу сайта." : productStatus.textContent;
+          if (saved) productStatus.textContent = text;
+          document.getElementById("dock-status").textContent = text;
         } catch (error) {
           productStatus.textContent = message(error);
+          document.getElementById("dock-status").textContent = message(error);
+        } finally {
+          document.getElementById("dock-save").disabled = false;
         }
       });
 
@@ -978,7 +1358,9 @@
           content = result.content;
           editing = null;
           productForm.classList.add("hidden");
+          syncDock();
           renderProductList();
+          document.getElementById("dock-status").textContent = "Изделие удалено.";
         } catch (error) {
           productStatus.textContent = message(error);
         }
@@ -1011,6 +1393,25 @@
           else if (error.message === "size") productStatus.textContent = "Фото слишком большое.";
           else productStatus.textContent = message(error);
         }
+      });
+
+      document.querySelector(".tabs").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-tab]");
+        if (!button) return;
+        showPanel(button.dataset.tab);
+      });
+
+      document.getElementById("product-search").addEventListener("input", (event) => {
+        productQuery = event.target.value;
+        productPage = 1;
+        renderProductList();
+      });
+
+      document.getElementById("dock-save").addEventListener("click", () => {
+        const mode = document.getElementById("dock-save").dataset.mode;
+        if (mode === "product") productForm.requestSubmit();
+        else if (mode === "order") ordersBox.querySelector("[data-order-save]")?.click();
+        else siteForm.requestSubmit();
       });
 
       if (passwordOf()) {
