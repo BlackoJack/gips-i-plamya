@@ -213,10 +213,17 @@
     if (content.meta.title) document.querySelector('meta[property="og:title"]')?.setAttribute("content", content.meta.title);
   }
 
+  function stockedCategories(content: LiveContent) {
+    return content.categories.filter((category) => content.products.some((product) => product.category === category.id));
+  }
+
   function applyCategories(content: LiveContent) {
     const grid = document.querySelector("[data-category-grid]");
     if (!grid) return;
-    grid.innerHTML = content.categories
+    const visible = stockedCategories(content);
+    const section = grid.closest("section");
+    if (section instanceof HTMLElement) section.hidden = visible.length === 0;
+    grid.innerHTML = visible
       .map(
         (category) =>
           `<li><a href="${escapeHtml(href(`/katalog/${category.slug}`))}" class="flex min-h-40 flex-col justify-between border border-ink/12 p-5 transition-colors duration-200 hover:bg-sand"><span class="font-display text-[2.15rem] leading-none font-medium">${escapeHtml(category.title)}</span><span class="mt-8 text-quiet">${escapeHtml(category.line)}</span></a></li>`,
@@ -246,6 +253,7 @@
       lede.hidden = !category;
     }
     if (category) document.title = `${category.title} — ${siteName()}`;
+    else if (!pathSlug) document.title = `Изделия — ${siteName()}`;
     const products =
       pathSlug && !category
         ? []
@@ -262,7 +270,7 @@
       const current = category?.slug || "all";
       const links = [
         `<a class="nav-link" href="${escapeHtml(href("/katalog"))}"${current === "all" ? ' aria-current="page"' : ""}>Все</a>`,
-        ...content.categories.map(
+        ...stockedCategories(content).map(
           (item) =>
             `<a class="nav-link" href="${escapeHtml(href(`/katalog/${item.slug}`))}"${current === item.slug ? ' aria-current="page"' : ""}>${escapeHtml(item.title)}</a>`,
         ),

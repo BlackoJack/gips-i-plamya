@@ -1,11 +1,12 @@
 ---
 import Base from "../../layouts/Base.astro";
 import Catalog from "../../components/Catalog.astro";
+import { config } from "../../config";
 import { getPublished } from "../../lib/products";
 
 const products = await getPublished();
 ---
 
-<Base page="catalog">
+<Base title={`Изделия — ${config.name}`} description={config.meta.description} page="catalog">
   <Catalog title="Изделия" current="all" products={products} />
 </Base>

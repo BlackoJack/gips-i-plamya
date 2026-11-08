@@ -1,12 +1,16 @@
 ---
 import { categories } from "../data/categories";
 import { href } from "../config";
+import { getPublished } from "../lib/products";
+
+const published = await getPublished();
+const visible = categories.filter((category) => published.some((product) => product.data.category === category.id));
 ---
 
-<section class="wrap rise pb-16 md:pb-20" aria-label="Категории">
+<section class="wrap rise pb-16 md:pb-20" aria-label="Категории" hidden={visible.length === 0}>
   <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-category-grid>
     {
-      categories.map((category) => (
+      visible.map((category) => (
         <li>
           <a
             href={href(`/katalog/${category.slug}`)}

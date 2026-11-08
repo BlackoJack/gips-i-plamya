@@ -245,9 +245,11 @@ footer .contact-row {
 }
 
 .cart-line {
-  display: grid;
-  gap: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
+  gap: 0.85rem 1.5rem;
   border-top: 1px solid rgba(34, 19, 9, 0.12);
   padding: 1rem 0;
 }
@@ -308,12 +310,8 @@ footer .contact-row {
 }
 
 @media (min-width: 640px) {
-  .cart-line {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
   .cart-product {
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: 88px max-content;
   }
 
   .cart-photo {
@@ -496,8 +494,8 @@ html[data-live-shelf]:not([data-content-ready]) [data-catalog-empty] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem 1rem;
+  justify-content: flex-start;
+  gap: 0.4rem 1.25rem;
   margin: 0;
 }
 

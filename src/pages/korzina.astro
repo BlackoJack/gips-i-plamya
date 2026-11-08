@@ -139,7 +139,7 @@ const root = href("/").replace(/\/$/, "");
           clear.type = "button";
           clear.className = "cart-remove";
           clear.dataset.offerClear = "";
-          clear.textContent = "Убрать";
+          clear.textContent = offer.kind === "gift" ? "Убрать подарок" : "Снять скидку";
           offerNode.append(label, clear);
         }
       }

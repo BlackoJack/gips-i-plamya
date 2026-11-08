@@ -1013,10 +1013,22 @@
         document.getElementById("pick-photo").disabled = creating || editing.images.length >= 8;
       }
 
+      function nextArticle() {
+        const products = Array.isArray(content.products) ? content.products : [];
+        let max = 0;
+        for (const product of products) {
+          const match = /^gp-(\d+)$/.exec(String(product.id || ""));
+          if (!match) continue;
+          const value = Number(match[1]);
+          if (value > max) max = value;
+        }
+        return `gp-${max + 1}`;
+      }
+
       function openProduct(product, isNew) {
         creating = isNew;
         editing = {
-          id: product.id,
+          id: isNew && !product.id ? nextArticle() : product.id,
           title: product.title,
           price: product.price,
           category: product.category,
@@ -1028,7 +1040,13 @@
           images: product.images.slice(),
         };
         productFields.replaceChildren();
-        productFields.append(field("id", "Артикул", editing.id, { readOnly: !isNew, required: true, placeholder: "vaza-12" }));
+        productFields.append(field("id", "Артикул", editing.id, { readOnly: !isNew, required: true, placeholder: "gp-1" }));
+        if (isNew) {
+          const note = document.createElement("p");
+          note.className = "note";
+          note.textContent = "Подставлен следующий артикул. До сохранения его можно заменить: латиница, цифры и дефис.";
+          productFields.append(note);
+        }
         productFields.append(field("title", "Название", editing.title, { required: true }));
         productFields.append(field("price", "Цена, ₽", editing.price ?? "", { placeholder: "Пусто — цену напишем" }));
         productFields.append(categorySelect(editing.category));

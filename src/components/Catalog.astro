@@ -3,7 +3,11 @@ import type { Product } from "../lib/products";
 import { categories } from "../data/categories";
 import { content } from "../data/content";
 import { href } from "../config";
+import { getPublished } from "../lib/products";
 import ProductCard from "./ProductCard.astro";
+
+const stocked = new Set((await getPublished()).map((product) => product.data.category));
+const listed = categories.filter((category) => stocked.has(category.id));
 
 interface Props {
   title: string;
@@ -33,7 +37,7 @@ const { title, lede, current, products } = Astro.props;
   <nav class="mt-8 flex flex-wrap gap-x-5 gap-y-2" aria-label="Категории" data-catalog-nav>
     <a class="nav-link" href={href("/katalog")} aria-current={current === "all" ? "page" : undefined}>Все</a>
     {
-      categories.map((category) => (
+      listed.map((category) => (
         <a
           class="nav-link"
           href={href(`/katalog/${category.slug}`)}
