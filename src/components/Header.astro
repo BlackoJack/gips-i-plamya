@@ -13,8 +13,8 @@ const telegram = telegramHref();
   <nav class="flex items-center gap-5 text-[0.98rem]" aria-label="Разделы">
     <a class="nav-link" href={href("/katalog")}>Изделия</a>
     <a class="nav-link" href={href("/#o-masterskoy")}>О мастерской</a>
-    {telegram && (
-      <a class="nav-link" href={telegram}>Написать</a>
-    )}
+    <a data-telegram-link class="nav-link" href={telegram || undefined} hidden={!telegram}>
+      Написать
+    </a>
   </nav>
 </header>

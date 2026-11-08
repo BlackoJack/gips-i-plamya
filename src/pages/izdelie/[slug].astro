@@ -55,7 +55,7 @@ if (product.data.price !== null) {
 ---
 
 <Base title={`${product.data.title} — ${config.name}`} description={description} ogImage={cover.src} jsonLd={productLd}>
-  <article class="wrap pt-4 pb-20 md:pt-8 md:pb-28">
+  <article class="wrap pt-4 pb-20 md:pt-8 md:pb-28" data-product-static={product.id}>
     <div class="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">
       <Gallery images={images} title={product.data.title} />
       <div>

@@ -4,12 +4,14 @@ import { config, asset } from "../config";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import MobileBar from "../components/MobileBar.astro";
+import ContentSync from "../components/ContentSync.astro";
 
 interface Props {
   title?: string;
   description?: string;
   ogImage?: string;
   noindex?: boolean;
+  page?: string;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
@@ -18,6 +20,7 @@ const {
   description = config.meta.description,
   ogImage = asset(config.meta.ogImage),
   noindex = false,
+  page,
   jsonLd,
 } = Astro.props;
 
@@ -59,7 +62,7 @@ const structured = [organization, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd :
     <meta name="twitter:card" content="summary_large_image" />
     <script type="application/ld+json" set:html={JSON.stringify(structured).replace(/</g, "\\u003c")} />
   </head>
-  <body class="grain">
+  <body class="grain" data-page={page}>
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[70] focus:bg-ink focus:px-4 focus:py-2 focus:text-paper"
@@ -72,5 +75,6 @@ const structured = [organization, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd :
     </main>
     <Footer />
     <MobileBar />
+    <ContentSync />
   </body>
 </html>

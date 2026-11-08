@@ -3,3 +3,8 @@ dist/
 .astro/
 .env
 .DS_Store
+yandex/.state
+yandex/.apigw.yaml
+yandex/.storage-key
+yandex/.ci-key.json
+yandex/.local/

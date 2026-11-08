@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
@@ -11,11 +11,11 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  github-pages:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test
+        run: npm test
+
       - name: Build
         env:
           # origin — это https://USER.github.io, base_path — /имя-репозитория.
@@ -46,8 +49,8 @@ jobs:
         with:
           path: dist
 
-  deploy:
-    needs: build
+  publish-pages:
+    needs: github-pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -56,3 +59,53 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  yandex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Install Yandex Cloud CLI
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$HOME/yandex-cloud" -n
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Yandex Cloud
+        env:
+          YC_SA_JSON: ${{ secrets.YC_SA_JSON }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+          YC_STORAGE_KEY: ${{ secrets.YC_STORAGE_KEY }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in YC_SA_JSON YC_FOLDER_ID YC_STORAGE_KEY ADMIN_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Нет секрета $name"
+              missing=1
+            fi
+          done
+          test "$missing" -eq 0
+          umask 077
+          printf '%s' "$YC_SA_JSON" > "$RUNNER_TEMP/sa.json"
+          mkdir -p yandex
+          printf '%s' "$YC_STORAGE_KEY" > yandex/.storage-key
+          printf '%s\n' "ADMIN_PASSWORD=${ADMIN_PASSWORD}" > .env
+          yc config set service-account-key "$RUNNER_TEMP/sa.json"
+          yc config set folder-id "$YC_FOLDER_ID"
+
+      - name: Deploy to Yandex
+        run: bash scripts/deploy-yandex.sh

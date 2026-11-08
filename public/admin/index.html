@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Админка — Гипс и пламя</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f1ede6;
+        --ink: #221309;
+        --sand: #e7d9c8;
+        --flame: #ae6f3f;
+        --line: rgba(34, 19, 9, 0.14);
+        --quiet: #4e4036;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
+      }
+      main { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+      h1 { font-size: 36px; letter-spacing: -0.03em; margin: 0; font-weight: 560; }
+      h2 { font-size: 22px; margin: 28px 0 8px; font-weight: 560; }
+      p.note { color: var(--quiet); margin: 8px 0 0; }
+      form, section.card {
+        border: 1px solid var(--line);
+        background: #f7f3ec;
+        padding: 16px;
+        margin-top: 12px;
+      }
+      label { display: block; margin-top: 12px; font-size: 13px; }
+      input, textarea, select {
+        width: 100%;
+        margin-top: 4px;
+        border: 1px solid var(--line);
+        background: white;
+        color: inherit;
+        font: inherit;
+        padding: 8px 10px;
+      }
+      textarea { min-height: 88px; resize: vertical; }
+      button, .link {
+        border: 0;
+        background: var(--ink);
+        color: var(--paper);
+        font: 600 13px/1 ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 12px 14px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+      .status { min-height: 1.2em; margin-top: 10px; }
+      .hidden { display: none; }
+      .checks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+      .checks label { display: flex; gap: 8px; align-items: center; margin: 0; }
+      .checks input { width: auto; margin: 0; }
+      .category, .photo, .product-row {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+      @media (min-width: 720px) {
+        .category { grid-template-columns: 140px 1fr 1.4fr auto; align-items: end; }
+      }
+      .photo { grid-template-columns: 72px 1fr; align-items: center; }
+      .photo img { width: 72px; height: 90px; object-fit: cover; background: var(--sand); }
+      .product-row { grid-template-columns: 1fr auto; align-items: center; }
+      .quiet { color: var(--quiet); font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Админка</h1>
+      <p class="note">Тексты, Telegram, полки и изделия. После сохранения обновите страницу сайта.</p>
+
+      <form id="login">
+        <label>Пароль
+          <input id="password" type="password" autocomplete="current-password" required />
+        </label>
+        <div class="row"><button type="submit">Войти</button></div>
+        <p id="login-status" class="status" role="status"></p>
+      </form>
+
+      <div id="desk" class="hidden">
+        <form id="site-form">
+          <h2>Тексты</h2>
+          <div id="texts"></div>
+          <h2>Telegram</h2>
+          <p class="note">Полная ссылка https://t.me/name. Пустое поле прячет кнопки «Написать».</p>
+          <div id="contact"></div>
+          <h2>Поиск и описание</h2>
+          <div id="meta"></div>
+          <h2>Полки</h2>
+          <p class="note">Адрес уже созданной полки не меняется. Новая полка: латиница, например vazy.</p>
+          <div id="categories"></div>
+          <div class="row">
+            <button type="button" id="add-category" class="ghost">Добавить полку</button>
+            <button type="submit">Сохранить тексты и полки</button>
+            <a class="link" href="/">Открыть сайт</a>
+          </div>
+          <p id="site-status" class="status" role="status"></p>
+        </form>
+
+        <section class="card">
+          <h2>Изделия</h2>
+          <p class="note">Черновик на сайте не виден. Чтобы опубликовать, нужны фото, короткая строка и описание. Первое фото — обложка.</p>
+          <div class="row"><button type="button" id="add-product">Новое изделие</button></div>
+          <div id="product-list"></div>
+          <form id="product-form" class="hidden">
+            <h2 id="product-heading">Изделие</h2>
+            <div id="product-fields"></div>
+            <h2>Фото</h2>
+            <p class="note">JPEG, PNG или WebP. Перед загрузкой кадр уменьшается до 1600 px.</p>
+            <div id="photos"></div>
+            <div class="row">
+              <button type="button" id="pick-photo" class="ghost">Добавить фото</button>
+              <input id="photo-input" class="hidden" type="file" accept="image/jpeg,image/png,image/webp" />
+            </div>
+            <div class="row">
+              <button type="submit">Сохранить изделие</button>
+              <button type="button" id="delete-product" class="ghost">Удалить</button>
+            </div>
+            <p id="product-status" class="status" role="status"></p>
+          </form>
+        </section>
+      </div>
+    </main>
+    <script>
+      const errors = {
+        unauthorized: "Пароль не подошёл.",
+        validation: "Проверьте поля: где-то пусто или текст длиннее, чем нужно.",
+        product_images: "У опубликованного изделия нет фото. Снимите его с сайта или добавьте кадр.",
+        product_text: "Нужны название, короткая строка и описание.",
+        product_id: "Адрес изделия — латиница, цифры, дефис или подчёркивание. Например, vaza-rebra.",
+        category: "У полки нужны адрес латиницей, название и подпись. Адреса не повторяются.",
+        category_in_use: "На этой полке ещё есть изделия. Сначала переложите их.",
+        telegram: "Ссылка должна быть вида https://t.me/name.",
+        id_taken: "Такой адрес изделия уже есть.",
+        not_found: "Сначала сохраните карточку, потом добавляйте фото.",
+        image_key: "Это фото не подошло.",
+        save_failed: "Не сохранилось.",
+        not_configured: "Админка ещё не настроена.",
+      };
+
+      const loginForm = document.getElementById("login");
+      const desk = document.getElementById("desk");
+      const siteForm = document.getElementById("site-form");
+      const productForm = document.getElementById("product-form");
+      const textsBox = document.getElementById("texts");
+      const contactBox = document.getElementById("contact");
+      const metaBox = document.getElementById("meta");
+      const categoriesBox = document.getElementById("categories");
+      const productList = document.getElementById("product-list");
+      const productFields = document.getElementById("product-fields");
+      const photosBox = document.getElementById("photos");
+      const loginStatus = document.getElementById("login-status");
+      const siteStatus = document.getElementById("site-status");
+      const productStatus = document.getElementById("product-status");
+
+      const passwordKey = "gips-admin";
+      const passwordOf = () => sessionStorage.getItem(passwordKey) || "";
+      let content = null;
+      let categories = [];
+      let editing = null;
+      let creating = false;
+
+      function message(error) {
+        return errors[error?.code || error?.message] || "Не получилось.";
+      }
+
+      async function admin(action, extra) {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-password": passwordOf() },
+          body: JSON.stringify({ action, ...extra }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          sessionStorage.removeItem(passwordKey);
+          desk.classList.add("hidden");
+          loginForm.classList.remove("hidden");
+          const error = new Error("unauthorized");
+          error.code = "unauthorized";
+          throw error;
+        }
+        if (!response.ok) {
+          const error = new Error(data.error || "validation");
+          error.code = data.error || "validation";
+          throw error;
+        }
+        return data;
+      }
+
+      function field(name, label, value, options) {
+        const settings = options || {};
+        const wrap = document.createElement("label");
+        wrap.textContent = label;
+        const input = document.createElement(settings.multiline ? "textarea" : "input");
+        if (!settings.multiline) input.type = settings.type || "text";
+        input.name = name;
+        input.value = value ?? "";
+        if (settings.placeholder) input.placeholder = settings.placeholder;
+        if (settings.required) input.required = true;
+        if (settings.readOnly) input.readOnly = true;
+        wrap.append(input);
+        return wrap;
+      }
+
+      function fillTexts() {
+        const texts = content.texts;
+        textsBox.replaceChildren();
+        contactBox.replaceChildren();
+        metaBox.replaceChildren();
+        const pairs = [
+          ["hero.kicker", "Над заголовком", texts.hero.kicker],
+          ["hero.line", "Строка под заголовком", texts.hero.line],
+          ["hero.catalog", "Кнопка каталога", texts.hero.catalog],
+          ["hero.write", "Кнопка «написать»", texts.hero.write],
+          ["shelf", "Заголовок полки на главной", texts.shelf],
+          ["order.title", "Заголовок «как заказать»", texts.order.title],
+          ["order.steps", "Шаги заказа, каждый с новой строки", texts.order.steps.join("\n"), { multiline: true }],
+          ["about.title", "Заголовок о мастерской", texts.about.title],
+          ["about.text", "Абзац о мастерской", texts.about.text, { multiline: true }],
+          ["empty.first", "Пустая полка, первая фраза", texts.empty.first],
+          ["empty.second", "Пустая полка, приглашение написать", texts.empty.second],
+          ["product.want", "Кнопка на карточке", texts.product.want],
+          ["product.priceLater", "Если цены нет", texts.product.priceLater],
+          ["product.more", "Заголовок «ещё в полке»", texts.product.more],
+        ];
+        for (const [name, label, value, options] of pairs) textsBox.append(field(name, label, value, options));
+        contactBox.append(field("telegram", "Ссылка", content.contacts.telegram || "", { placeholder: "https://t.me/name" }));
+        metaBox.append(field("meta.title", "Заголовок вкладки", content.meta.title));
+        metaBox.append(field("meta.description", "Описание для поиска", content.meta.description, { multiline: true }));
+      }
+
+      function renderCategories() {
+        categoriesBox.replaceChildren();
+        categories.forEach((category, index) => {
+          const row = document.createElement("div");
+          row.className = "category";
+          const slug = field("slug", "Адрес", category.slug, { readOnly: !category.fresh, placeholder: "vazy" });
+          const title = field("title", "Название", category.title);
+          const line = field("line", "Подпись", category.line);
+          slug.querySelector("input").addEventListener("input", (event) => {
+            category.slug = event.target.value.trim();
+            if (category.fresh) category.id = category.slug;
+          });
+          title.querySelector("input").addEventListener("input", (event) => {
+            category.title = event.target.value;
+          });
+          line.querySelector("input").addEventListener("input", (event) => {
+            category.line = event.target.value;
+          });
+          const buttons = document.createElement("div");
+          buttons.className = "row";
+          const up = document.createElement("button");
+          up.type = "button";
+          up.className = "ghost";
+          up.textContent = "Выше";
+          up.disabled = index === 0;
+          up.addEventListener("click", () => {
+            [categories[index - 1], categories[index]] = [categories[index], categories[index - 1]];
+            renderCategories();
+          });
+          const down = document.createElement("button");
+          down.type = "button";
+          down.className = "ghost";
+          down.textContent = "Ниже";
+          down.disabled = index === categories.length - 1;
+          down.addEventListener("click", () => {
+            [categories[index + 1], categories[index]] = [categories[index], categories[index + 1]];
+            renderCategories();
+          });
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "ghost";
+          remove.textContent = "Убрать";
+          remove.disabled = categories.length === 1;
+          remove.addEventListener("click", () => {
+            categories.splice(index, 1);
+            renderCategories();
+          });
+          buttons.append(up, down, remove);
+          row.append(slug, title, line, buttons);
+          categoriesBox.append(row);
+        });
+      }
+
+      function priceLabel(price) {
+        if (price == null) return "цену напишем";
+        return `${new Intl.NumberFormat("ru-RU").format(price)} ₽`;
+      }
+
+      function renderProductList() {
+        productList.replaceChildren();
+        for (const product of content.products) {
+          const row = document.createElement("div");
+          row.className = "product-row";
+          const text = document.createElement("p");
+          text.textContent = `${product.title} — ${priceLabel(product.price)} — ${product.published ? "на сайте" : "скрыто"}`;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "ghost";
+          button.textContent = "Править";
+          button.addEventListener("click", () => openProduct(product, false));
+          row.append(text, button);
+          productList.append(row);
+        }
+      }
+
+      function categorySelect(selected) {
+        const wrap = document.createElement("label");
+        wrap.textContent = "Полка";
+        const select = document.createElement("select");
+        select.name = "category";
+        for (const category of content.categories) {
+          const option = document.createElement("option");
+          option.value = category.id;
+          option.textContent = category.title;
+          option.selected = category.id === selected;
+          select.append(option);
+        }
+        wrap.append(select);
+        return wrap;
+      }
+
+      function imageSrc(key) {
+        if (!/^media\/[a-z0-9][a-z0-9_-]{0,40}\/[a-z0-9][a-z0-9_-]{0,40}\.jpg$/.test(key)) return "";
+        return `/${key}`;
+      }
+
+      function renderPhotos() {
+        photosBox.replaceChildren();
+        editing.images.forEach((key, index) => {
+          const row = document.createElement("article");
+          row.className = "photo";
+          const img = document.createElement("img");
+          img.alt = "";
+          img.src = imageSrc(key);
+          const buttons = document.createElement("div");
+          buttons.className = "row";
+          const up = document.createElement("button");
+          up.type = "button";
+          up.className = "ghost";
+          up.textContent = "Выше";
+          up.disabled = index === 0;
+          up.addEventListener("click", () => movePhoto(index, -1));
+          const down = document.createElement("button");
+          down.type = "button";
+          down.className = "ghost";
+          down.textContent = "Ниже";
+          down.disabled = index === editing.images.length - 1;
+          down.addEventListener("click", () => movePhoto(index, 1));
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "ghost";
+          remove.textContent = "Удалить фото";
+          remove.addEventListener("click", () => removePhoto(key));
+          buttons.append(up, down, remove);
+          row.append(img, buttons);
+          photosBox.append(row);
+        });
+        document.getElementById("pick-photo").disabled = creating || editing.images.length >= 8;
+      }
+
+      function openProduct(product, isNew) {
+        creating = isNew;
+        editing = {
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          category: product.category,
+          summary: product.summary,
+          body: product.body,
+          featured: product.featured,
+          order: product.order,
+          published: product.published,
+          images: product.images.slice(),
+        };
+        productFields.replaceChildren();
+        productFields.append(field("id", "Адрес", editing.id, { readOnly: !isNew, required: true, placeholder: "vaza-rebra" }));
+        productFields.append(field("title", "Название", editing.title, { required: true }));
+        productFields.append(field("price", "Цена, ₽", editing.price ?? "", { placeholder: "Пусто — цену напишем" }));
+        productFields.append(categorySelect(editing.category));
+        productFields.append(field("summary", "Короткая строка", editing.summary));
+        productFields.append(field("body", "Описание", editing.body, { multiline: true }));
+        productFields.append(field("order", "Порядок", String(editing.order), { type: "number" }));
+        const checks = document.createElement("div");
+        checks.className = "checks";
+        for (const [name, label, checked] of [
+          ["featured", "На главной", editing.featured],
+          ["published", "На сайте", editing.published],
+        ]) {
+          const wrap = document.createElement("label");
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.name = name;
+          input.checked = checked;
+          wrap.append(input, document.createTextNode(label));
+          checks.append(wrap);
+        }
+        productFields.append(checks);
+        document.getElementById("product-heading").textContent = isNew ? "Новое изделие" : editing.title;
+        document.getElementById("delete-product").classList.toggle("hidden", isNew);
+        renderPhotos();
+        productStatus.textContent = isNew ? "Сохраните карточку, затем добавьте фото." : "";
+        productForm.classList.remove("hidden");
+        productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function collectSite() {
+        const data = new FormData(siteForm);
+        return {
+          contacts: { telegram: String(data.get("telegram") || "").trim() },
+          meta: {
+            title: String(data.get("meta.title") || ""),
+            description: String(data.get("meta.description") || ""),
+          },
+          texts: {
+            hero: {
+              kicker: String(data.get("hero.kicker") || ""),
+              line: String(data.get("hero.line") || ""),
+              catalog: String(data.get("hero.catalog") || ""),
+              write: String(data.get("hero.write") || ""),
+            },
+            shelf: String(data.get("shelf") || ""),
+            order: {
+              title: String(data.get("order.title") || ""),
+              steps: String(data.get("order.steps") || "")
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean),
+            },
+            about: {
+              title: String(data.get("about.title") || ""),
+              text: String(data.get("about.text") || ""),
+            },
+            empty: {
+              first: String(data.get("empty.first") || ""),
+              second: String(data.get("empty.second") || ""),
+            },
+            product: {
+              want: String(data.get("product.want") || ""),
+              priceLater: String(data.get("product.priceLater") || ""),
+              more: String(data.get("product.more") || ""),
+            },
+          },
+          categories: categories.map((category) => ({
+            id: category.fresh ? category.slug : category.id,
+            slug: category.slug,
+            title: category.title.trim(),
+            line: category.line.trim(),
+          })),
+        };
+      }
+
+      function collectProduct() {
+        const data = new FormData(productForm);
+        const rawPrice = String(data.get("price") || "").trim();
+        if (rawPrice && !/^\d+$/.test(rawPrice)) return { error: "Цена — целое число рублей или пусто." };
+        const rawOrder = String(data.get("order") || "").trim();
+        if (!/^\d+$/.test(rawOrder)) return { error: "Порядок — целое число." };
+        const id = String(data.get("id") || "").trim();
+        return {
+          product: {
+            id,
+            title: String(data.get("title") || ""),
+            price: rawPrice ? Number(rawPrice) : null,
+            category: String(data.get("category") || ""),
+            summary: String(data.get("summary") || ""),
+            body: String(data.get("body") || ""),
+            featured: data.get("featured") === "on",
+            order: Number(rawOrder),
+            published: data.get("published") === "on",
+            images: editing.images.slice(),
+          },
+        };
+      }
+
+      async function openDesk() {
+        const loaded = await admin("load");
+        content = loaded.content;
+        categories = content.categories.map((category) => ({ ...category, fresh: false }));
+        fillTexts();
+        renderCategories();
+        renderProductList();
+        loginForm.classList.add("hidden");
+        desk.classList.remove("hidden");
+      }
+
+      async function movePhoto(index, shift) {
+        const next = index + shift;
+        if (next < 0 || next >= editing.images.length) return;
+        const images = editing.images.slice();
+        [images[index], images[next]] = [images[next], images[index]];
+        editing.images = images;
+        renderPhotos();
+        await persistProduct();
+      }
+
+      async function removePhoto(key) {
+        productStatus.textContent = "Удаляю фото…";
+        try {
+          const result = await admin("delete-image", { key });
+          content = result.content;
+          const fresh = content.products.find((item) => item.id === editing.id);
+          editing.images = fresh ? fresh.images.slice() : editing.images.filter((item) => item !== key);
+          renderPhotos();
+          renderProductList();
+          productStatus.textContent = "Фото удалено.";
+        } catch (error) {
+          productStatus.textContent = message(error);
+        }
+      }
+
+      async function persistProduct() {
+        const collected = collectProduct();
+        if (collected.error) {
+          productStatus.textContent = collected.error;
+          return false;
+        }
+        const result = await admin("save-product", { create: creating, product: collected.product });
+        content = result.content;
+        creating = false;
+        editing.id = collected.product.id;
+        const idInput = productForm.querySelector('input[name="id"]');
+        if (idInput) idInput.readOnly = true;
+        document.getElementById("delete-product").classList.remove("hidden");
+        renderProductList();
+        renderPhotos();
+        return true;
+      }
+
+      async function shrink(file) {
+        if (file.size > 25 * 1024 * 1024) throw new Error("size");
+        let bitmap;
+        try {
+          bitmap = await createImageBitmap(file);
+        } catch {
+          throw new Error("type");
+        }
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        if (bitmap.close) bitmap.close();
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.86));
+        if (!blob || blob.size > 4_500_000) throw new Error("size");
+        return blob;
+      }
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        sessionStorage.setItem(passwordKey, document.getElementById("password").value);
+        loginStatus.textContent = "Проверяю…";
+        try {
+          await admin("login");
+          loginStatus.textContent = "";
+          await openDesk();
+        } catch (error) {
+          loginStatus.textContent = message(error);
+        }
+      });
+
+      document.getElementById("add-category").addEventListener("click", () => {
+        categories.push({ id: "", slug: "", title: "", line: "", fresh: true });
+        renderCategories();
+      });
+
+      siteForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        siteStatus.textContent = "Сохраняю…";
+        try {
+          const result = await admin("save-site", { site: collectSite() });
+          content = result.content;
+          categories = content.categories.map((category) => ({ ...category, fresh: false }));
+          renderCategories();
+          if (editing) renderPhotos();
+          siteStatus.textContent = "Сохранено. Обновите страницу сайта.";
+        } catch (error) {
+          siteStatus.textContent = message(error);
+        }
+      });
+
+      document.getElementById("add-product").addEventListener("click", () => {
+        openProduct(
+          {
+            id: "",
+            title: "",
+            price: null,
+            category: content.categories[0]?.id || "",
+            summary: "",
+            body: "",
+            featured: false,
+            order: 100,
+            published: false,
+            images: [],
+          },
+          true,
+        );
+      });
+
+      productForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        productStatus.textContent = "Сохраняю…";
+        try {
+          const saved = await persistProduct();
+          if (saved) productStatus.textContent = "Сохранено. Обновите страницу сайта.";
+        } catch (error) {
+          productStatus.textContent = message(error);
+        }
+      });
+
+      document.getElementById("delete-product").addEventListener("click", async () => {
+        if (!editing?.id || creating) return;
+        if (!confirm("Удалить изделие и его фото?")) return;
+        productStatus.textContent = "Удаляю…";
+        try {
+          const result = await admin("delete-product", { id: editing.id });
+          content = result.content;
+          editing = null;
+          productForm.classList.add("hidden");
+          renderProductList();
+        } catch (error) {
+          productStatus.textContent = message(error);
+        }
+      });
+
+      document.getElementById("pick-photo").addEventListener("click", () => {
+        document.getElementById("photo-input").click();
+      });
+
+      document.getElementById("photo-input").addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = "";
+        if (!file || creating) return;
+        productStatus.textContent = "Загружаю фото…";
+        try {
+          const blob = await shrink(file);
+          const signed = await admin("sign-upload", { productId: editing.id });
+          const headers = { "Content-Type": signed.headers["Content-Type"] };
+          if (String(signed.url).startsWith("/")) headers["x-admin-password"] = passwordOf();
+          const uploaded = await fetch(signed.url, { method: "PUT", headers, body: blob });
+          if (!uploaded.ok) throw new Error("save_failed");
+          editing.images.push(signed.key);
+          renderPhotos();
+          const saved = await persistProduct();
+          productStatus.textContent = saved
+            ? "Фото на месте. Обновите страницу сайта."
+            : "Фото легло в хранилище, но карточка не сохранилась. Нажмите «Сохранить» ещё раз.";
+        } catch (error) {
+          if (error.message === "type") productStatus.textContent = "Это фото не открылось. Сохраните его как JPEG.";
+          else if (error.message === "size") productStatus.textContent = "Фото слишком большое.";
+          else productStatus.textContent = message(error);
+        }
+      });
+
+      if (passwordOf()) {
+        admin("login")
+          .then(openDesk)
+          .catch(() => sessionStorage.removeItem(passwordKey));
+      }
+    </script>
+  </body>
+</html>

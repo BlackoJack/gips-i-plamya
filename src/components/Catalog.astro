@@ -16,11 +16,21 @@ const { title, lede, current, products } = Astro.props;
 const telegram = telegramHref();
 ---
 
-<section class="wrap pt-4 pb-20 md:pt-8 md:pb-28">
-  <h1 class="font-display text-[clamp(44px,7vw,80px)] leading-[0.95]">{title}</h1>
-  {lede && <p class="mt-4 text-lg text-quiet">{lede}</p>}
+<section class="wrap pt-4 pb-20 md:pt-8 md:pb-28" data-catalog data-catalog-mode={current}>
+  <script is:inline define:vars={{ mode: current }}>
+    (function () {
+      var parts = location.pathname.split("/").filter(Boolean);
+      var index = parts.lastIndexOf("katalog");
+      var slug = index >= 0 ? parts[index + 1] : "";
+      if (slug && slug.indexOf(".") === -1 && mode === "all") {
+        document.documentElement.dataset.liveShelf = slug;
+      }
+    })();
+  </script>
+  <h1 class="font-display text-[clamp(44px,7vw,80px)] leading-[0.95]" data-catalog-title>{title}</h1>
+  <p class="mt-4 text-lg text-quiet" data-catalog-lede hidden={!lede}>{lede}</p>
 
-  <nav class="mt-8 flex flex-wrap gap-x-5 gap-y-2" aria-label="Категории">
+  <nav class="mt-8 flex flex-wrap gap-x-5 gap-y-2" aria-label="Категории" data-catalog-nav>
     <a class="nav-link" href={href("/katalog")} aria-current={current === "all" ? "page" : undefined}>Все</a>
     {
       categories.map((category) => (
@@ -35,25 +45,20 @@ const telegram = telegramHref();
     }
   </nav>
 
-  {
-    products.length === 0 ? (
-      <p class="mt-14 max-w-md text-lg">
-        {content.empty.first}
-        {telegram && (
-          <>
-            {" "}
-            <a class="quiet-link" href={telegram}>{content.empty.second}</a>
-          </>
-        )}
-      </p>
-    ) : (
-      <ul class="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
-          <li>
-            <ProductCard product={product} />
-          </li>
-        ))}
-      </ul>
-    )
-  }
+  <p class="mt-14 max-w-md text-lg" data-catalog-empty hidden={products.length > 0}>
+    <span data-text="empty.first">{content.empty.first}</span>
+    <a data-telegram-link class="quiet-link" href={telegram || undefined} hidden={!telegram}>
+      {" "}
+      <span data-text="empty.second">{content.empty.second}</span>
+    </a>
+  </p>
+  <ul class="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3" data-catalog-grid hidden={products.length === 0}>
+    {
+      products.map((product) => (
+        <li>
+          <ProductCard product={product} />
+        </li>
+      ))
+    }
+  </ul>
 </section>

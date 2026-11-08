@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev",
     "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
-    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview"
+    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview",
+    "test": "node --test --test-concurrency=1 yandex/lead/content.test.js",
+    "seed": "node --experimental-strip-types scripts/seed-content.ts",
+    "admin:dev": "node --experimental-strip-types scripts/seed-content.ts && node scripts/dev-api.mjs",
+    "deploy:yandex": "bash scripts/deploy-yandex.sh"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

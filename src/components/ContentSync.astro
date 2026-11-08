@@ -1,0 +1,395 @@
+<script>
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  function href(path: string) {
+    const normalized = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${normalized}`;
+  }
+
+  function escapeHtml(value: string) {
+    return value.replace(/[&<>"']/g, (char) => {
+      const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+      return map[char];
+    });
+  }
+
+  function money(value: number) {
+    return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 })
+      .format(value)
+      .replace(/[\u00A0\u202F]/g, " ")}\u00A0₽`;
+  }
+
+  function siteName() {
+    return document.querySelector('meta[property="og:site_name"]')?.getAttribute("content") || "Гипс и пламя";
+  }
+
+  type Category = { id: string; slug: string; title: string; line: string };
+  type Product = {
+    id: string;
+    title: string;
+    price: number | null;
+    category: string;
+    summary: string;
+    body: string;
+    featured: boolean;
+    order: number;
+    images: string[];
+  };
+  type LiveContent = {
+    contacts?: { telegram?: string };
+    meta?: { title?: string; description?: string };
+    texts: {
+      hero: { kicker: string; line: string; catalog: string; write: string };
+      shelf: string;
+      order: { title: string; steps: string[] };
+      about: { title: string; text: string };
+      empty: { first: string; second: string };
+      product: { want: string; priceLater: string; more: string };
+    };
+    categories: Category[];
+    products: Product[];
+  };
+
+  function telegramHref(raw: string, text?: string) {
+    try {
+      const url = new URL(raw);
+      const host = url.hostname.toLowerCase();
+      if (url.protocol !== "https:" || (host !== "t.me" && host !== "telegram.me")) return "";
+      if (text) url.searchParams.set("text", text);
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
+  function categoryOf(content: LiveContent, id: string) {
+    return content.categories.find((item) => item.id === id);
+  }
+
+  function priceText(product: Product, content: LiveContent) {
+    return product.price == null ? content.texts.product.priceLater : money(product.price);
+  }
+
+  function cardHtml(product: Product, content: LiveContent, level: "h2" | "h3") {
+    const category = categoryOf(content, product.category);
+    const cover = product.images[0]
+      ? `<img src="${escapeHtml(href(`/${product.images[0]}`))}" alt="" class="aspect-[4/5] w-full rounded-[2px] object-cover" loading="lazy">`
+      : `<div class="aspect-[4/5] w-full rounded-[2px] bg-sand"></div>`;
+    return `<a href="${escapeHtml(href(`/izdelie/${product.id}`))}" class="group block">${cover}<p class="mt-4 text-sm text-quiet">${escapeHtml(category?.title || "")}</p><${level} class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">${escapeHtml(product.title)}</${level}><p class="mt-2 max-w-sm text-quiet">${escapeHtml(product.summary)}</p><p class="mt-2">${escapeHtml(priceText(product, content))}</p></a>`;
+  }
+
+  function fillGrid(grid: Element, products: Product[], content: LiveContent, level: "h2" | "h3") {
+    grid.innerHTML = products.map((product) => `<li>${cardHtml(product, content, level)}</li>`).join("");
+  }
+
+  function paragraphs(body: string) {
+    return body
+      .split(/\n{2,}/)
+      .map((part) => part.replace(/\s*\n\s*/g, " ").trim())
+      .filter(Boolean)
+      .map((part) => `<p>${escapeHtml(part)}</p>`)
+      .join("");
+  }
+
+  function galleryHtml(images: string[], title: string) {
+    const frames = images
+      .map((key, index) => {
+        const alt = index === 0 ? title : `Кадр ${index + 1} — ${title}`;
+        return `<div data-live-frame data-index="${index}"${index === 0 ? "" : " hidden"}><img src="${escapeHtml(href(`/${key}`))}" alt="${escapeHtml(alt)}" class="h-auto w-full rounded-[2px]"${index === 0 ? "" : ' loading="lazy"'}></div>`;
+      })
+      .join("");
+    if (images.length < 2) return `<div class="grid gap-3">${frames}</div>`;
+    const thumbs = images
+      .map(
+        (key, index) =>
+          `<button type="button" class="thumb" data-live-thumb data-index="${index}" aria-pressed="${index === 0 ? "true" : "false"}" aria-label="${escapeHtml(`Кадр ${index + 1} из ${images.length}`)}"><img src="${escapeHtml(href(`/${key}`))}" alt="" class="h-20 w-20 rounded-[2px] object-cover"></button>`,
+      )
+      .join("");
+    return `<div class="grid gap-3" data-live-gallery>${frames}<div class="flex flex-wrap gap-2">${thumbs}</div></div>`;
+  }
+
+  function segmentAfter(name: string) {
+    const parts = location.pathname.split("/").filter(Boolean);
+    const index = parts.lastIndexOf(name);
+    if (index === -1) return "";
+    const slug = parts[index + 1] || "";
+    if (!slug || slug.includes(".")) return "";
+    return slug;
+  }
+
+  function setTelegram(raw: string) {
+    const link = raw ? telegramHref(raw) : "";
+    document.querySelectorAll<HTMLAnchorElement>("[data-telegram-link]").forEach((node) => {
+      if (!link) {
+        node.hidden = true;
+        node.removeAttribute("href");
+        return;
+      }
+      node.hidden = false;
+      node.href = link;
+    });
+    const mobile = document.querySelector<HTMLAnchorElement>("[data-mobile-action]");
+    const label = document.querySelector("[data-mobile-label]");
+    if (!mobile || !label) return;
+    if (link) {
+      mobile.href = link;
+      label.textContent = "Написать";
+    } else {
+      mobile.href = href("/katalog");
+      label.textContent = "Изделия";
+    }
+  }
+
+  function applyTexts(content: LiveContent) {
+    const texts = content.texts;
+    const map: Record<string, string> = {
+      "hero.kicker": texts.hero.kicker,
+      "hero.line": texts.hero.line,
+      "hero.catalog": texts.hero.catalog,
+      "hero.write": texts.hero.write,
+      shelf: texts.shelf,
+      "order.title": texts.order.title,
+      "about.title": texts.about.title,
+      "about.text": texts.about.text,
+      "empty.first": texts.empty.first,
+      "empty.second": texts.empty.second,
+    };
+    document.querySelectorAll<HTMLElement>("[data-text]").forEach((node) => {
+      const value = map[node.dataset.text || ""];
+      if (value) node.textContent = value;
+    });
+    const steps = document.querySelector("[data-order-steps]");
+    if (steps && Array.isArray(texts.order.steps)) {
+      steps.innerHTML = texts.order.steps
+        .map(
+          (step, index) =>
+            `<li class="border-t border-ink/12 pt-4"><span class="step-num">${index + 1}</span><p class="mt-4 max-w-xs">${escapeHtml(step)}</p></li>`,
+        )
+        .join("");
+    }
+  }
+
+  function applyHomeMeta(content: LiveContent) {
+    if (document.body.dataset.page !== "home" || !content.meta) return;
+    if (content.meta.title) document.title = content.meta.title;
+    if (content.meta.description) {
+      document.querySelector('meta[name="description"]')?.setAttribute("content", content.meta.description);
+      document.querySelector('meta[property="og:description"]')?.setAttribute("content", content.meta.description);
+    }
+    if (content.meta.title) document.querySelector('meta[property="og:title"]')?.setAttribute("content", content.meta.title);
+  }
+
+  function applyCategories(content: LiveContent) {
+    const grid = document.querySelector("[data-category-grid]");
+    if (!grid) return;
+    grid.innerHTML = content.categories
+      .map(
+        (category) =>
+          `<li><a href="${escapeHtml(href(`/katalog/${category.slug}`))}" class="flex min-h-40 flex-col justify-between border border-ink/12 p-5 transition-colors duration-200 hover:bg-sand"><span class="font-display text-[2.15rem] leading-none font-medium">${escapeHtml(category.title)}</span><span class="mt-8 text-quiet">${escapeHtml(category.line)}</span></a></li>`,
+      )
+      .join("");
+  }
+
+  function applyShelf(content: LiveContent) {
+    const section = document.querySelector("[data-shelf]");
+    const grid = document.querySelector("[data-shelf-grid]");
+    if (!section || !grid) return;
+    const featured = content.products.filter((product) => product.featured);
+    if (section instanceof HTMLElement) section.hidden = featured.length === 0;
+    fillGrid(grid, featured, content, "h3");
+  }
+
+  function applyCatalog(content: LiveContent) {
+    const root = document.querySelector("[data-catalog]");
+    if (!root) return;
+    const pathSlug = segmentAfter("katalog");
+    const category = pathSlug ? content.categories.find((item) => item.slug === pathSlug) : null;
+    const title = root.querySelector("[data-catalog-title]");
+    const lede = root.querySelector("[data-catalog-lede]");
+    if (category && title) title.textContent = category.title;
+    if (lede instanceof HTMLElement) {
+      lede.textContent = category?.line || "";
+      lede.hidden = !category;
+    }
+    if (category) document.title = `${category.title} — ${siteName()}`;
+    const products =
+      pathSlug && !category
+        ? []
+        : category
+          ? content.products.filter((product) => product.category === category.id)
+          : content.products;
+    const grid = root.querySelector("[data-catalog-grid]");
+    const empty = root.querySelector("[data-catalog-empty]");
+    if (grid) fillGrid(grid, products, content, "h2");
+    if (grid instanceof HTMLElement) grid.hidden = products.length === 0;
+    if (empty instanceof HTMLElement) empty.hidden = products.length > 0;
+    const nav = root.querySelector("[data-catalog-nav]");
+    if (nav) {
+      const current = category?.slug || "all";
+      const links = [
+        `<a class="nav-link" href="${escapeHtml(href("/katalog"))}"${current === "all" ? ' aria-current="page"' : ""}>Все</a>`,
+        ...content.categories.map(
+          (item) =>
+            `<a class="nav-link" href="${escapeHtml(href(`/katalog/${item.slug}`))}"${current === item.slug ? ' aria-current="page"' : ""}>${escapeHtml(item.title)}</a>`,
+        ),
+      ];
+      nav.innerHTML = links.join("");
+    }
+  }
+
+  function missingHtml() {
+    return `<h1 class="font-display text-[clamp(40px,6vw,72px)] leading-[0.95]">Такой вещи нет</h1><a class="btn btn-ink mt-8" href="${escapeHtml(href("/katalog"))}">Смотреть изделия</a>`;
+  }
+
+  function productHtml(product: Product, content: LiveContent) {
+    const category = categoryOf(content, product.category);
+    const pageUrl = location.href.split("#")[0];
+    const order = `Здравствуйте! Хочу «${product.title}»${product.price == null ? "" : `, цена ${money(product.price)}`}. Ссылка: ${pageUrl}`;
+    const telegram = content.contacts?.telegram ? telegramHref(content.contacts.telegram, order) : "";
+    const action = telegram
+      ? `<a class="btn btn-ink mt-8" href="${escapeHtml(telegram)}">${escapeHtml(content.texts.product.want)}</a>`
+      : `<p class="mt-8 max-w-sm text-quiet">Ссылку для заказа ещё не задали.</p>`;
+    const categoryLink = category
+      ? `<a class="quiet-link text-quiet" href="${escapeHtml(href(`/katalog/${category.slug}`))}">${escapeHtml(category.title)}</a>`
+      : "";
+    const others = content.products.filter((item) => item.category === product.category && item.id !== product.id);
+    const related = others.length >= 2 ? others.slice(0, 3) : [];
+    const relatedHtml =
+      related.length === 0
+        ? ""
+        : `<section class="mt-20"><h2 class="font-display text-[clamp(32px,4vw,48px)] leading-none">${escapeHtml(content.texts.product.more)}</h2><ul class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">${related
+            .map((item) => `<li>${cardHtml(item, content, "h3")}</li>`)
+            .join("")}</ul></section>`;
+    return `<div class="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">${galleryHtml(product.images, product.title)}<div>${categoryLink}<h1 class="mt-3 font-display text-[clamp(40px,5vw,68px)] leading-[0.95]">${escapeHtml(product.title)}</h1><p class="mt-4 text-xl">${escapeHtml(priceText(product, content))}</p><div class="product-text mt-6 max-w-prose">${paragraphs(product.body)}</div>${action}</div></div>${relatedHtml}`;
+  }
+
+  function rememberProduct(product: Product) {
+    const title = `${product.title} — ${siteName()}`;
+    const description = product.summary.slice(0, 155);
+    document.title = title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
+    const pageUrl = location.href.split("#")[0];
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", pageUrl);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", pageUrl);
+    const image = product.images[0] ? new URL(href(`/${product.images[0]}`), location.origin).href : "";
+    if (image) document.querySelector('meta[property="og:image"]')?.setAttribute("content", image);
+    const productLd: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      description: product.summary,
+      image: product.images.map((key) => new URL(href(`/${key}`), location.origin).href),
+      brand: { "@type": "Brand", name: siteName() },
+    };
+    if (product.price != null) {
+      productLd.offers = { "@type": "Offer", priceCurrency: "RUB", price: product.price, url: pageUrl };
+    }
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const data = JSON.parse(script.textContent || "");
+        if (!Array.isArray(data)) continue;
+        const index = data.findIndex((item) => item && item["@type"] === "Product");
+        if (index === -1) continue;
+        data[index] = productLd;
+        script.textContent = JSON.stringify(data);
+        return;
+      } catch {
+        /* разметка сборки остаётся */
+      }
+    }
+  }
+
+  function applyProduct(content: LiveContent) {
+    const shell = document.querySelector("[data-product-root]");
+    const staticRoot = document.querySelector("[data-product-static]");
+    const root = shell || staticRoot;
+    if (!root) return;
+    const id = shell ? segmentAfter("izdelie") : staticRoot?.getAttribute("data-product-static") || "";
+    if (!id) {
+      root.innerHTML = missingHtml();
+      return;
+    }
+    const product = content.products.find((item) => item.id === id);
+    if (!product) {
+      root.innerHTML = missingHtml();
+      document.title = `Такой вещи нет — ${siteName()}`;
+      return;
+    }
+    root.innerHTML = productHtml(product, content);
+    rememberProduct(product);
+  }
+
+  function apply(content: LiveContent) {
+    applyTexts(content);
+    setTelegram(content.contacts?.telegram || "");
+    applyHomeMeta(content);
+    applyCategories(content);
+    applyShelf(content);
+    applyCatalog(content);
+    applyProduct(content);
+  }
+
+  function showFrame(root: Element, index: number) {
+    root.querySelectorAll<HTMLElement>("[data-live-frame]").forEach((frame) => {
+      frame.hidden = Number(frame.dataset.index) !== index;
+    });
+    root.querySelectorAll<HTMLElement>("[data-live-thumb]").forEach((thumb) => {
+      thumb.setAttribute("aria-pressed", Number(thumb.dataset.index) === index ? "true" : "false");
+    });
+  }
+
+  if (document.documentElement.dataset.liveBound !== "1") {
+    document.documentElement.dataset.liveBound = "1";
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const thumb = target.closest<HTMLElement>("[data-live-thumb]");
+      if (!thumb) return;
+      const root = thumb.closest("[data-live-gallery]");
+      if (!root) return;
+      showFrame(root, Number(thumb.dataset.index));
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const root = target.closest("[data-live-gallery]");
+      if (!root) return;
+      const thumbs = [...root.querySelectorAll<HTMLElement>("[data-live-thumb]")];
+      const current = thumbs.findIndex((thumb) => thumb.getAttribute("aria-pressed") === "true");
+      const next = event.key === "ArrowRight" ? current + 1 : current - 1;
+      if (next < 0 || next >= thumbs.length) return;
+      event.preventDefault();
+      showFrame(root, next);
+      thumbs[next].focus();
+    });
+  }
+
+  function finish() {
+    document.documentElement.dataset.contentReady = "1";
+  }
+
+  fetch("/api/content", { cache: "no-store", signal: AbortSignal.timeout(4000) })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((content) => {
+      if (!content || !Array.isArray(content.products) || !content.texts || !Array.isArray(content.categories)) return;
+      apply(content);
+    })
+    .catch(() => {
+      /* без API остаётся страница из сборки */
+    })
+    .finally(() => {
+      finish();
+      const status = document.querySelector("[data-product-status]");
+      if (!status) return;
+      status.textContent = "";
+      status.append(document.createTextNode("Не удалось открыть витрину. "));
+      const link = document.createElement("a");
+      link.href = href("/katalog");
+      link.className = "quiet-link";
+      link.textContent = "Смотреть изделия";
+      status.append(link);
+    });
+</script>

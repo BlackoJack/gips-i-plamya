@@ -167,6 +167,19 @@
   margin-top: 0.85em;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+/* Категория на Яндексе открывает общую страницу каталога. Пока живые данные не пришли, чужие карточки не показываем. */
+html[data-live-shelf]:not([data-content-ready]) [data-catalog-title],
+html[data-live-shelf]:not([data-content-ready]) [data-catalog-lede],
+html[data-live-shelf]:not([data-content-ready]) [data-catalog-nav],
+html[data-live-shelf]:not([data-content-ready]) [data-catalog-grid],
+html[data-live-shelf]:not([data-content-ready]) [data-catalog-empty] {
+  visibility: hidden;
+}
+
 .dock {
   box-shadow: 0 -8px 24px rgba(34, 19, 9, 0.08);
 }

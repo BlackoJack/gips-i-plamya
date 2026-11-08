@@ -3,8 +3,8 @@ import { content } from "../data/content";
 ---
 
 <section class="wrap rise pb-16 md:pb-24">
-  <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none">{content.order.title}</h2>
-  <ol class="mt-8 grid gap-8 md:grid-cols-3">
+  <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none" data-text="order.title">{content.order.title}</h2>
+  <ol class="mt-8 grid gap-8 md:grid-cols-3" data-order-steps>
     {
       content.order.steps.map((step, index) => (
         <li class="border-t border-ink/12 pt-4">

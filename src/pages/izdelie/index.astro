@@ -1,0 +1,15 @@
+---
+import Base from "../../layouts/Base.astro";
+import { config, href } from "../../config";
+---
+
+<Base title={`Изделие — ${config.name}`}>
+  <article class="wrap pt-4 pb-20 md:pt-8 md:pb-28" data-product-root>
+    <p class="text-quiet" data-product-status>Открываем изделие…</p>
+    <noscript>
+      <p class="mt-6">
+        <a class="quiet-link" href={href("/katalog")}>Смотреть изделия</a>
+      </p>
+    </noscript>
+  </article>
+</Base>

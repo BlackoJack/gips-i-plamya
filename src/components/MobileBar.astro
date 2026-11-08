@@ -5,7 +5,7 @@ const telegram = telegramHref();
 ---
 
 <div class="dock fixed inset-x-0 bottom-0 z-50 border-t border-ink/12 bg-paper p-3 md:hidden">
-  <a class="btn btn-ink w-full" href={telegram ?? href("/katalog")}>
-    {telegram ? "Написать" : "Изделия"}
+  <a class="btn btn-ink w-full" data-mobile-action href={telegram ?? href("/katalog")}>
+    <span data-mobile-label>{telegram ? "Написать" : "Изделия"}</span>
   </a>
 </div>

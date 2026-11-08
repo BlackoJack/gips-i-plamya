@@ -12,23 +12,21 @@ import { getFeatured } from "../lib/products";
 const featured = await getFeatured();
 ---
 
-<Base>
+<Base page="home">
   <Hero />
   <Categories />
-  {
-    featured.length > 0 && (
-      <section class="wrap rise pb-16 md:pb-20">
-        <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none">{content.shelf}</h2>
-        <ul class="mt-10 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((product) => (
-            <li>
-              <ProductCard product={product} level="h3" />
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
+  <section class="wrap rise pb-16 md:pb-20" data-shelf hidden={featured.length === 0}>
+    <h2 class="font-display text-[clamp(36px,5vw,56px)] leading-none" data-text="shelf">{content.shelf}</h2>
+    <ul class="mt-10 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3" data-shelf-grid>
+      {
+        featured.map((product) => (
+          <li>
+            <ProductCard product={product} level="h3" />
+          </li>
+        ))
+      }
+    </ul>
+  </section>
   <Postcard />
   <Order />
   <About />

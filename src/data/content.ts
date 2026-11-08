@@ -25,7 +25,7 @@ export const content = {
   product: {
     want: "Хочу эту",
     priceLater: "Цену напишем в переписке",
-    missingTelegram: "Ссылку для заказа нужно вписать в src/config.ts",
+    missingTelegram: "Ссылку для заказа ещё не задали.",
     more: "Ещё в этой полке",
   },
   alts: {
