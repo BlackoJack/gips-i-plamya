@@ -149,7 +149,7 @@ yc serverless function version create \
   --runtime nodejs22 \
   --entrypoint index.handler \
   --memory 256m \
-  --execution-timeout 15s \
+  --execution-timeout 20s \
   --source-path "$root/yandex/lead" \
   --service-account-id "$sa_id" \
   --environment "DATA_BUCKET=${data_bucket}" \

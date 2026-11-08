@@ -4,7 +4,7 @@ import { render } from "astro:content";
 import Base from "../../layouts/Base.astro";
 import Gallery from "../../components/Gallery.astro";
 import ProductCard from "../../components/ProductCard.astro";
-import { config, href, money, orderText, telegramHref } from "../../config";
+import { config, href, money } from "../../config";
 import { content } from "../../data/content";
 import { categoryById } from "../../data/categories";
 import { getPublished, imagesOf, type Product } from "../../lib/products";
@@ -27,9 +27,6 @@ const images = imagesOf(product);
 const { Content } = await render(product);
 const priceLabel = product.data.price === null ? null : money(product.data.price);
 const pageUrl = new URL(Astro.url.pathname, Astro.site ?? config.siteUrl).toString();
-const telegram = telegramHref(
-  orderText(product.data.title, priceLabel, pageUrl),
-);
 const others = (await getPublished()).filter(
   (item) => item.data.category === product.data.category && item.id !== product.id,
 );
@@ -42,6 +39,7 @@ const productLd: Record<string, unknown> = {
   name: product.data.title,
   description: product.data.summary,
   image: images.map((image) => new URL(image.src, Astro.site ?? config.siteUrl).toString()),
+  sku: product.id,
   brand: { "@type": "Brand", name: config.name },
 };
 if (product.data.price !== null) {
@@ -67,17 +65,15 @@ if (product.data.price !== null) {
           )
         }
         <h1 class="mt-3 font-display text-[clamp(40px,5vw,68px)] leading-[0.95]">{product.data.title}</h1>
+        <p class="mt-3 text-sm tracking-wide text-quiet">Артикул {product.id}</p>
         <p class="mt-4 text-xl">{priceLabel ?? content.product.priceLater}</p>
         <div class="product-text mt-6 max-w-prose">
           <Content />
         </div>
-        {
-          telegram ? (
-            <a class="btn btn-ink mt-8" href={telegram}>{content.product.want}</a>
-          ) : (
-            <p class="mt-8 max-w-sm text-quiet">{content.product.missingTelegram}</p>
-          )
-        }
+        <button class="btn btn-ink mt-8 w-full sm:w-auto" type="button" data-add-cart={product.id} data-cart-label>
+          {content.product.want}
+        </button>
+        <nav class="mt-6 flex flex-wrap gap-x-5 gap-y-2" data-contacts hidden aria-label="Спросить про изделие"></nav>
       </div>
     </div>
 

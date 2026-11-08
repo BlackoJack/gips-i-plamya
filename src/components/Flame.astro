@@ -3,10 +3,12 @@ interface Props {
   class?: string;
 }
 
-const { class: className = "h-6 w-5" } = Astro.props;
+const { class: className = "h-9 w-9" } = Astro.props;
 ---
 
-<svg class={className} viewBox="0 0 32 40" fill="currentColor" aria-hidden="true">
-  <path d="M14 2.2c1.4 5.4-1.8 8.4-1.8 13.2 0 2.6 1.8 4.4 3.8 4.4 3 0 5.2-2.4 5.2-5.6C21.2 8.2 17.2 4.6 14 2.2z"></path>
-  <path d="M17.2 11c2 4.8.2 7.6-.5 10.4 2.8-.2 5.4 1.6 5.4 4.6 0 4.2-3.2 7.4-7.4 7.4-4.4 0-7.6-3.4-7.6-7.8 0-3.2 2-5.4 3.8-6.4-.7 2.4.7 4 2 4 .3-3.6 1.8-6.8 4.3-12.2z"></path>
+<svg class={className} viewBox="0 0 32 32" aria-hidden="true">
+  <rect width="32" height="32" rx="8" fill="#221309"></rect>
+  <path fill="#E7B08A" d="M16 3.2c.3 2.7-2.1 4.1-2.1 6.6 0 1.4 1 2.3 2.1 2.3 1.6 0 2.8-1.3 2.8-3 0-2.7-1.8-4.5-2.8-5.9z"></path>
+  <path fill="#F4EFE6" d="M10.2 13.4h11.6l1.3 2.6c.7 1.5.1 3-1.2 3.7l-1.3 6.6c-.2.7-.8 1.2-1.5 1.2h-5.6c-.7 0-1.3-.5-1.5-1.2l-1.3-6.6c-1.3-.7-1.9-2.2-1.2-3.7l1.3-2.6z"></path>
+  <path fill="#221309" d="M14.4 13.4h3.2v1.7h-3.2z"></path>
 </svg>

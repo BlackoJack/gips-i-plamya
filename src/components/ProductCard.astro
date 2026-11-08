@@ -28,7 +28,7 @@ const price = product.data.price === null ? content.product.priceLater : money(p
     loading="lazy"
     class="aspect-[4/5] w-full rounded-[2px] object-cover"
   />
-  <p class="mt-4 text-sm text-quiet">{category?.title}</p>
+  <p class="mt-4 text-sm text-quiet">{category?.title} · {product.id}</p>
   <Title class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">
     {product.data.title}
   </Title>

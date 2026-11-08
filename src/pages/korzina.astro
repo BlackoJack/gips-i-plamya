@@ -1,0 +1,161 @@
+---
+import Base from "../layouts/Base.astro";
+import { href } from "../config";
+---
+
+<Base title="Корзина — Гипс и пламя" noindex>
+  <section class="wrap pt-4 pb-8 md:pt-8 md:pb-16">
+    <h1 class="font-display text-[clamp(44px,7vw,80px)] leading-[0.95]">Корзина</h1>
+    <p class="mt-6 max-w-md text-lg" data-cart-empty>
+      Пока пусто. <a class="quiet-link" href={href("/katalog")}>Смотреть изделия</a>
+    </p>
+    <form id="order-form" class="mt-8 grid max-w-2xl gap-5" hidden>
+      <ul class="grid gap-4" data-cart-lines></ul>
+      <p class="text-xl" data-cart-total></p>
+      <label class="grid gap-2">
+        Имя
+        <input class="field" name="name" required minlength="2" maxlength="80" autocomplete="name" />
+      </label>
+      <label class="grid gap-2">
+        Контакт для ответа
+        <input
+          class="field"
+          name="contact"
+          required
+          minlength="5"
+          maxlength="120"
+          autocomplete="tel"
+          placeholder="Телефон, Telegram или почта"
+        />
+      </label>
+      <label class="grid gap-2">
+        Комментарий
+        <textarea class="field min-h-28" name="note" maxlength="1000"></textarea>
+      </label>
+      <input class="hidden" name="company" tabindex="-1" autocomplete="off" />
+      <button class="btn btn-ink w-full sm:w-auto" type="submit">Оформить заказ</button>
+      <p data-order-status role="status"></p>
+    </form>
+    <div data-order-done hidden>
+      <p class="order-number mt-8 font-display text-[clamp(40px,6vw,64px)] leading-none" data-order-number></p>
+      <p class="mt-4 max-w-md text-lg">Заказ принят. Ответим на контакт, который вы оставили.</p>
+      <a class="btn btn-ink mt-8" href={href("/katalog")}>К изделиям</a>
+    </div>
+  </section>
+  <script>
+    const cartKey = "gips-cart";
+    const form = document.getElementById("order-form");
+    const empty = document.querySelector("[data-cart-empty]");
+    const lines = document.querySelector("[data-cart-lines]");
+    const totalNode = document.querySelector("[data-cart-total]");
+    const statusNode = document.querySelector("[data-order-status]");
+    const done = document.querySelector("[data-order-done]");
+    const numberNode = document.querySelector("[data-order-number]");
+    let catalog = [];
+
+    function money(value) {
+      return `${new Intl.NumberFormat("ru-RU").format(value).replace(/[\u00A0\u202F]/g, " ")}\u00A0₽`;
+    }
+
+    function readCart() {
+      try {
+        const data = JSON.parse(localStorage.getItem(cartKey) || "[]");
+        return Array.isArray(data) ? data : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function paint() {
+      if (!(form instanceof HTMLFormElement) || !(lines instanceof HTMLElement) || !(empty instanceof HTMLElement)) return;
+      const cart = readCart();
+      if (!cart.length) {
+        form.hidden = true;
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      form.hidden = false;
+      let known = 0;
+      let later = false;
+      lines.innerHTML = cart
+        .map((row) => {
+          const product = catalog.find((item) => item.id === row.id);
+          const title = product?.title || row.id;
+          const price = product ? product.price : null;
+          if (price == null) later = true;
+          else known += price * row.qty;
+          const priceText = !product ? "нет на сайте" : price == null ? "цену напишем" : money(price);
+          return `<li class="grid gap-3 border-t border-ink/12 py-4 sm:grid-cols-[1fr_auto] sm:items-center"><div><p class="text-sm text-quiet">${row.id}</p><p class="font-display text-3xl leading-none">${title}</p><p class="mt-2">${priceText}</p></div><label class="flex items-center gap-3">Шт<input class="field w-20" data-qty="${row.id}" type="number" min="1" max="20" value="${row.qty}"></label></li>`;
+        })
+        .join("");
+      if (totalNode) {
+        totalNode.textContent = later ? `Известная сумма ${money(known)}. Остальное напишем в переписке.` : `Итого ${money(known)}`;
+      }
+    }
+
+    async function loadCatalog() {
+      try {
+        const response = await fetch("/api/content", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        catalog = Array.isArray(data.products) ? data.products : [];
+      } catch {
+        catalog = [];
+      }
+      paint();
+    }
+
+    lines?.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || !target.dataset.qty) return;
+      const qty = Number(target.value);
+      const cart = readCart()
+        .map((row) => (row.id === target.dataset.qty ? { ...row, qty } : row))
+        .filter((row) => Number.isInteger(row.qty) && row.qty > 0 && row.qty <= 20);
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+      document.dispatchEvent(new CustomEvent("gips-cart"));
+      paint();
+    });
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!(form instanceof HTMLFormElement) || !(statusNode instanceof HTMLElement)) return;
+      const data = new FormData(form);
+      const cart = readCart();
+      statusNode.textContent = "Отправляю…";
+      try {
+        const response = await fetch("/api/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: String(data.get("name") || ""),
+            contact: String(data.get("contact") || ""),
+            note: String(data.get("note") || ""),
+            company: String(data.get("company") || ""),
+            items: cart.map((row) => ({ id: row.id, qty: row.qty })),
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          statusNode.textContent =
+            result.error === "cart_changed"
+              ? "Часть изделий уже не на сайте. Обновите корзину."
+              : "Не получилось. Проверьте имя и контакт.";
+          return;
+        }
+        localStorage.removeItem(cartKey);
+        document.dispatchEvent(new CustomEvent("gips-cart"));
+        form.hidden = true;
+        if (empty instanceof HTMLElement) empty.hidden = true;
+        if (done instanceof HTMLElement) done.hidden = false;
+        if (numberNode) numberNode.textContent = result.number || "Заказ принят";
+      } catch {
+        statusNode.textContent = "Нет связи с мастерской. Попробуйте ещё раз.";
+      }
+    });
+
+    document.addEventListener("gips-cart", paint);
+    loadCatalog();
+  </script>
+</Base>

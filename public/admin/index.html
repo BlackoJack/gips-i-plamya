@@ -94,12 +94,20 @@
       </form>
 
       <div id="desk" class="hidden">
+        <section class="card">
+          <h2>Заказы</h2>
+          <div id="orders"></div>
+        </section>
         <form id="site-form">
           <h2>Тексты</h2>
           <div id="texts"></div>
-          <h2>Telegram</h2>
-          <p class="note">Полная ссылка https://t.me/name. Пустое поле прячет кнопки «Написать».</p>
+          <h2>Контакты</h2>
+          <p class="note">Пустое поле прячет эту кнопку на сайте. Почта для писем с заказами — отдельно, ниже.</p>
           <div id="contact"></div>
+          <h2>Куда присылать заказы</h2>
+          <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Для Gmail нужен пароль приложения.</p>
+          <div id="mail"></div>
+          <div class="row"><button type="button" id="test-mail" class="ghost">Проверить почту</button></div>
           <h2>Поиск и описание</h2>
           <div id="meta"></div>
           <h2>Полки</h2>
@@ -143,11 +151,22 @@
         validation: "Проверьте поля: где-то пусто или текст длиннее, чем нужно.",
         product_images: "У опубликованного изделия нет фото. Снимите его с сайта или добавьте кадр.",
         product_text: "Нужны название, короткая строка и описание.",
-        product_id: "Адрес изделия — латиница, цифры, дефис или подчёркивание. Например, vaza-rebra.",
+        product_id: "Артикул — латиница, цифры, дефис или подчёркивание. Например, vaza-12.",
         category: "У полки нужны адрес латиницей, название и подпись. Адреса не повторяются.",
         category_in_use: "На этой полке ещё есть изделия. Сначала переложите их.",
-        telegram: "Ссылка должна быть вида https://t.me/name.",
-        id_taken: "Такой адрес изделия уже есть.",
+        telegram: "Telegram: ссылка вида https://t.me/name.",
+        whatsapp: "WhatsApp: номер телефона, например +7 913 000-00-00.",
+        max: "Max: ссылка вида https://max.ru/name.",
+        email: "Почта на сайте должна быть адресом, например shop@example.ru.",
+        mail: "Проверьте сервер, логин и адрес, куда слать заказы. Порт только 465.",
+        id_taken: "Такой артикул уже есть.",
+        cart_changed: "В корзине есть изделие, которого уже нет на сайте.",
+        smtp_no_password: "Нет пароля почты. Сначала впишите логин, пароль приложения и адрес получателя.",
+        smtp_535: "Почта отклонила пароль. Для Gmail нужен пароль приложения.",
+        smtp_534: "Почта отклонила пароль. Для Gmail нужен пароль приложения.",
+        smtp_timeout: "Почтовый сервер не ответил.",
+        smtp_config: "Проверьте адрес, логин и сервер.",
+        smtp_failed: "Письмо не ушло.",
         not_found: "Сначала сохраните карточку, потом добавляйте фото.",
         image_key: "Это фото не подошло.",
         save_failed: "Не сохранилось.",
@@ -160,6 +179,8 @@
       const productForm = document.getElementById("product-form");
       const textsBox = document.getElementById("texts");
       const contactBox = document.getElementById("contact");
+      const mailBox = document.getElementById("mail");
+      const ordersBox = document.getElementById("orders");
       const metaBox = document.getElementById("meta");
       const categoriesBox = document.getElementById("categories");
       const productList = document.getElementById("product-list");
@@ -172,6 +193,7 @@
       const passwordKey = "gips-admin";
       const passwordOf = () => sessionStorage.getItem(passwordKey) || "";
       let content = null;
+      let notify = null;
       let categories = [];
       let editing = null;
       let creating = false;
@@ -227,7 +249,6 @@
           ["hero.kicker", "Над заголовком", texts.hero.kicker],
           ["hero.line", "Строка под заголовком", texts.hero.line],
           ["hero.catalog", "Кнопка каталога", texts.hero.catalog],
-          ["hero.write", "Кнопка «написать»", texts.hero.write],
           ["shelf", "Заголовок полки на главной", texts.shelf],
           ["order.title", "Заголовок «как заказать»", texts.order.title],
           ["order.steps", "Шаги заказа, каждый с новой строки", texts.order.steps.join("\n"), { multiline: true }],
@@ -235,12 +256,24 @@
           ["about.text", "Абзац о мастерской", texts.about.text, { multiline: true }],
           ["empty.first", "Пустая полка, первая фраза", texts.empty.first],
           ["empty.second", "Пустая полка, приглашение написать", texts.empty.second],
-          ["product.want", "Кнопка на карточке", texts.product.want],
+          ["product.want", "Кнопка «в корзину»", texts.product.want],
           ["product.priceLater", "Если цены нет", texts.product.priceLater],
           ["product.more", "Заголовок «ещё в полке»", texts.product.more],
         ];
         for (const [name, label, value, options] of pairs) textsBox.append(field(name, label, value, options));
-        contactBox.append(field("telegram", "Ссылка", content.contacts.telegram || "", { placeholder: "https://t.me/name" }));
+        const contacts = content.contacts || {};
+        contactBox.append(field("telegram", "Telegram", contacts.telegram || "", { placeholder: "https://t.me/name" }));
+        contactBox.append(field("whatsapp", "WhatsApp", contacts.whatsapp || "", { placeholder: "+7 913 000-00-00" }));
+        contactBox.append(field("max", "Max", contacts.max || "", { placeholder: "https://max.ru/name" }));
+        contactBox.append(field("email", "Почта на сайте", contacts.email || "", { placeholder: "shop@example.ru" }));
+        const mail = notify || {};
+        mailBox.replaceChildren();
+        mailBox.append(field("smtpHost", "Сервер почты", mail.smtpHost || "smtp.yandex.ru"));
+        mailBox.append(field("smtpUser", "Логин почты", mail.smtpUser || "", { placeholder: "shop@yandex.ru" }));
+        mailBox.append(field("smtpPassword", "Пароль приложения", mail.smtpPassword || "", { type: "password", autocomplete: "new-password" }));
+        mailBox.append(field("mailTo", "Куда слать заказы", mail.mailTo || "", { placeholder: "shop@yandex.ru" }));
+        mailBox.append(field("telegramToken", "Токен бота Telegram", mail.telegramToken || "", { required: false, placeholder: "Необязательно" }));
+        mailBox.append(field("telegramChatId", "Чат Telegram", mail.telegramChatId || "", { required: false, placeholder: "Необязательно" }));
         metaBox.append(field("meta.title", "Заголовок вкладки", content.meta.title));
         metaBox.append(field("meta.description", "Описание для поиска", content.meta.description, { multiline: true }));
       }
@@ -309,7 +342,7 @@
           const row = document.createElement("div");
           row.className = "product-row";
           const text = document.createElement("p");
-          text.textContent = `${product.title} — ${priceLabel(product.price)} — ${product.published ? "на сайте" : "скрыто"}`;
+          text.textContent = `${product.id} — ${product.title} — ${priceLabel(product.price)} — ${product.published ? "на сайте" : "скрыто"}`;
           const button = document.createElement("button");
           button.type = "button";
           button.className = "ghost";
@@ -390,7 +423,7 @@
           images: product.images.slice(),
         };
         productFields.replaceChildren();
-        productFields.append(field("id", "Адрес", editing.id, { readOnly: !isNew, required: true, placeholder: "vaza-rebra" }));
+        productFields.append(field("id", "Артикул", editing.id, { readOnly: !isNew, required: true, placeholder: "vaza-12" }));
         productFields.append(field("title", "Название", editing.title, { required: true }));
         productFields.append(field("price", "Цена, ₽", editing.price ?? "", { placeholder: "Пусто — цену напишем" }));
         productFields.append(categorySelect(editing.category));
@@ -423,7 +456,12 @@
       function collectSite() {
         const data = new FormData(siteForm);
         return {
-          contacts: { telegram: String(data.get("telegram") || "").trim() },
+          contacts: {
+            telegram: String(data.get("telegram") || "").trim(),
+            whatsapp: String(data.get("whatsapp") || "").trim(),
+            max: String(data.get("max") || "").trim(),
+            email: String(data.get("email") || "").trim(),
+          },
           meta: {
             title: String(data.get("meta.title") || ""),
             description: String(data.get("meta.description") || ""),
@@ -433,7 +471,6 @@
               kicker: String(data.get("hero.kicker") || ""),
               line: String(data.get("hero.line") || ""),
               catalog: String(data.get("hero.catalog") || ""),
-              write: String(data.get("hero.write") || ""),
             },
             shelf: String(data.get("shelf") || ""),
             order: {
@@ -489,13 +526,64 @@
         };
       }
 
+      function collectNotify() {
+        const data = new FormData(siteForm);
+        return {
+          smtpHost: String(data.get("smtpHost") || "").trim(),
+          smtpPort: 465,
+          smtpUser: String(data.get("smtpUser") || "").trim(),
+          smtpPassword: String(data.get("smtpPassword") || ""),
+          mailTo: String(data.get("mailTo") || "").trim(),
+          telegramToken: String(data.get("telegramToken") || "").trim(),
+          telegramChatId: String(data.get("telegramChatId") || "").trim(),
+        };
+      }
+
+      function renderOrders(orders) {
+        ordersBox.replaceChildren();
+        if (!orders.length) {
+          ordersBox.textContent = "Пока пусто.";
+          return;
+        }
+        for (const order of orders) {
+          const article = document.createElement("article");
+          article.className = "category";
+          const title = document.createElement("p");
+          const when = order.at ? new Date(order.at).toLocaleString("ru-RU") : "";
+          title.textContent = `${order.number} — ${order.name} — ${when}`;
+          const body = document.createElement("p");
+          const lines = (order.items || []).map((item) => `${item.id} ${item.title} × ${item.qty}`).join("; ");
+          body.textContent = `${order.contact}${order.note ? `. ${order.note}` : ""}. ${lines}`;
+          const buttons = document.createElement("div");
+          buttons.className = "row";
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "ghost";
+          remove.textContent = "Убрать";
+          remove.addEventListener("click", async () => {
+            await admin("delete-order", { key: order.key });
+            await refreshOrders();
+          });
+          buttons.append(remove);
+          article.append(title, body, buttons);
+          ordersBox.append(article);
+        }
+      }
+
+      async function refreshOrders() {
+        const listed = await admin("orders");
+        renderOrders(listed.orders || []);
+      }
+
       async function openDesk() {
         const loaded = await admin("load");
         content = loaded.content;
+        notify = loaded.notify || {};
         categories = content.categories.map((category) => ({ ...category, fresh: false }));
         fillTexts();
         renderCategories();
         renderProductList();
+        await refreshOrders();
         loginForm.classList.add("hidden");
         desk.classList.remove("hidden");
       }
@@ -584,12 +672,28 @@
         event.preventDefault();
         siteStatus.textContent = "Сохраняю…";
         try {
-          const result = await admin("save-site", { site: collectSite() });
+          const result = await admin("save-site", { site: collectSite(), notify: collectNotify() });
           content = result.content;
+          if (result.notify) notify = result.notify;
           categories = content.categories.map((category) => ({ ...category, fresh: false }));
           renderCategories();
           if (editing) renderPhotos();
           siteStatus.textContent = "Сохранено. Обновите страницу сайта.";
+        } catch (error) {
+          siteStatus.textContent = message(error);
+        }
+      });
+
+      document.getElementById("test-mail").addEventListener("click", async () => {
+        siteStatus.textContent = "Проверяю почту…";
+        try {
+          const result = await admin("test-mail", { notify: collectNotify() });
+          if (!result.ok) {
+            const error = new Error(result.error || "smtp_failed");
+            error.code = result.error || "smtp_failed";
+            throw error;
+          }
+          siteStatus.textContent = "Письмо ушло. Проверьте входящие.";
         } catch (error) {
           siteStatus.textContent = message(error);
         }

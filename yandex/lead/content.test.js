@@ -20,7 +20,7 @@ const repo = path.resolve(__dirname, "../..");
 
 function draftFrom(seed) {
   return {
-    contacts: { telegram: seed.contacts.telegram },
+    contacts: { ...seed.contacts },
     meta: { ...seed.meta },
     texts: JSON.parse(JSON.stringify(seed.texts)),
     categories: seed.categories.map((item) => ({ ...item })),
@@ -39,10 +39,10 @@ test("сид из репозитория публикует только гот�
   const seed = JSON.parse(fs.readFileSync(out, "utf8"));
   const checked = sanitizeContent(seed);
   assert.ok(checked);
-  const ids = checked.products.map((item) => item.id);
-  assert.deepEqual(ids.filter((id) => checked.products.find((item) => item.id === id).published).sort(), ["nabor_1", "svecha_1"]);
-  assert.equal(ids.includes("_primer"), false);
-  assert.equal(toPublic(checked).products.every((item) => item.published), true);
+  assert.deepEqual(checked.products, []);
+  assert.equal(checked.contacts.telegram, "");
+  assert.equal(checked.contacts.whatsapp, "");
+  assert.equal(checked.contacts.email, "");
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -62,17 +62,30 @@ test("ключ фото остаётся внутри своего издели�
 test("слияние добавляет новый id и не затирает цену", () => {
   const seed = sanitizeContent(JSON.parse(fs.readFileSync(path.join(__dirname, "content.default.json"), "utf8")));
   const remote = draftFrom(seed);
-  remote.products[0].price = 1900;
-  remote.products[0].title = "Уже в админке";
+  remote.products.push({
+    id: "vaza-1",
+    title: "Уже в админке",
+    price: 1900,
+    category: "vases",
+    summary: "Строка",
+    body: "Описание вещи.",
+    featured: true,
+    order: 1,
+    published: true,
+    images: ["media/vaza-1/1.jpg"],
+  });
   const extra = draftFrom(seed);
   extra.products.push({
-    ...extra.products[0],
     id: "vaza-2",
     title: "Новая ваза",
-    images: ["media/vaza-2/1.jpg"],
-    published: false,
+    price: 500,
+    category: "vases",
     summary: "",
     body: "",
+    featured: false,
+    order: 2,
+    published: false,
+    images: ["media/vaza-2/1.jpg"],
   });
   const merged = mergeContent(remote, extra);
   assert.equal(merged.ok, true);
@@ -198,6 +211,78 @@ test("админка прячет черновик и не даёт снять �
     );
     assert.equal(removed.statusCode, 422);
     assert.equal(JSON.parse(removed.body).error, "category_in_use");
+  } finally {
+    for (const [key, value] of Object.entries({
+      LOCAL_ROOT: previous.root,
+      ADMIN_PASSWORD: previous.password,
+      DATA_BUCKET: previous.data,
+      SITE_BUCKET: previous.site,
+    })) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test("заказ получает номер и остаётся в админке", async () => {
+  const previous = {
+    root: process.env.LOCAL_ROOT,
+    password: process.env.ADMIN_PASSWORD,
+    data: process.env.DATA_BUCKET,
+    site: process.env.SITE_BUCKET,
+  };
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "gips-order-"));
+  process.env.LOCAL_ROOT = folder;
+  process.env.ADMIN_PASSWORD = "test-password-1";
+  process.env.DATA_BUCKET = "data";
+  process.env.SITE_BUCKET = "site";
+  try {
+    const call = (method, route, body, password) =>
+      handler({
+        httpMethod: method,
+        headers: password ? { "x-admin-password": password } : {},
+        body: body ? JSON.stringify(body) : "",
+        path: `/api/${route}`,
+        requestContext: { apiGateway: { operationContext: { route } } },
+      });
+    const saved = await call(
+      "POST",
+      "admin",
+      {
+        action: "save-product",
+        create: true,
+        product: {
+          id: "vaza-12",
+          title: "Ваза",
+          price: 1200,
+          category: "vases",
+          summary: "Для цветов",
+          body: "Гипсовая ваза.",
+          featured: false,
+          order: 1,
+          published: true,
+          images: ["media/vaza-12/1.jpg"],
+        },
+      },
+      "test-password-1",
+    );
+    assert.equal(saved.statusCode, 200, saved.body);
+    const ordered = await call("POST", "order", {
+      name: "Анна",
+      contact: "+7 913 000-00-00",
+      note: "Самовывоз",
+      items: [{ id: "vaza-12", qty: 2 }],
+    });
+    assert.equal(ordered.statusCode, 200, ordered.body);
+    const receipt = JSON.parse(ordered.body);
+    assert.equal(receipt.number, "ГП-1001");
+    assert.equal(receipt.total, 2400);
+    assert.equal(receipt.mail, false);
+    const listed = JSON.parse((await call("POST", "admin", { action: "orders" }, "test-password-1")).body);
+    assert.equal(listed.orders[0].number, "ГП-1001");
+    assert.equal(listed.orders[0].contact, "+7 913 000-00-00");
+    assert.equal(listed.orders[0].items[0].id, "vaza-12");
   } finally {
     for (const [key, value] of Object.entries({
       LOCAL_ROOT: previous.root,

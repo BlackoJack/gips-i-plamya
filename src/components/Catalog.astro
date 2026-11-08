@@ -2,7 +2,7 @@
 import type { Product } from "../lib/products";
 import { categories } from "../data/categories";
 import { content } from "../data/content";
-import { href, telegramHref } from "../config";
+import { href } from "../config";
 import ProductCard from "./ProductCard.astro";
 
 interface Props {
@@ -13,7 +13,6 @@ interface Props {
 }
 
 const { title, lede, current, products } = Astro.props;
-const telegram = telegramHref();
 ---
 
 <section class="wrap pt-4 pb-20 md:pt-8 md:pb-28" data-catalog data-catalog-mode={current}>
@@ -47,10 +46,8 @@ const telegram = telegramHref();
 
   <p class="mt-14 max-w-md text-lg" data-catalog-empty hidden={products.length > 0}>
     <span data-text="empty.first">{content.empty.first}</span>
-    <a data-telegram-link class="quiet-link" href={telegram || undefined} hidden={!telegram}>
-      {" "}
-      <span data-text="empty.second">{content.empty.second}</span>
-    </a>
+    {" "}
+    <span data-text="empty.second">{content.empty.second}</span>
   </p>
   <ul class="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3" data-catalog-grid hidden={products.length === 0}>
     {

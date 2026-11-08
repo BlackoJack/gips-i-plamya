@@ -86,14 +86,18 @@ function buildSeed() {
   }
   return {
     draft: {
-      contacts: { telegram: config.contacts.telegram },
+      contacts: {
+        telegram: config.contacts.telegram,
+        whatsapp: config.contacts.whatsapp,
+        max: config.contacts.max,
+        email: config.contacts.email,
+      },
       meta: { title: config.meta.title, description: config.meta.description },
       texts: {
         hero: {
           kicker: content.hero.kicker,
           line: content.hero.line,
           catalog: content.hero.catalog,
-          write: content.hero.write,
         },
         shelf: content.shelf,
         order: { title: content.order.title, steps: [...content.order.steps] },

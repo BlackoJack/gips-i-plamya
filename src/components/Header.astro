@@ -1,20 +1,18 @@
 ---
-import { config, href, telegramHref } from "../config";
+import { href } from "../config";
 import Flame from "./Flame.astro";
-
-const telegram = telegramHref();
 ---
 
-<header class="wrap flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-  <a href={href("/")} class="inline-flex items-center gap-2 font-display text-[1.65rem] leading-none font-medium text-ink">
-    <Flame class="h-7 w-5 text-flame" />
+<header class="wrap flex flex-wrap items-center justify-between gap-x-5 gap-y-3 py-4 sm:py-5">
+  <a href={href("/")} class="inline-flex min-h-11 items-center gap-2.5 font-display text-[1.55rem] leading-none font-medium text-ink sm:text-[1.7rem]">
+    <Flame class="h-9 w-9 shrink-0" />
     <span>Гипс <span class="italic">и</span> пламя</span>
   </a>
-  <nav class="flex items-center gap-5 text-[0.98rem]" aria-label="Разделы">
-    <a class="nav-link" href={href("/katalog")}>Изделия</a>
-    <a class="nav-link" href={href("/#o-masterskoy")}>О мастерской</a>
-    <a data-telegram-link class="nav-link" href={telegram || undefined} hidden={!telegram}>
-      Написать
+  <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.98rem]" aria-label="Разделы">
+    <a class="nav-link inline-flex min-h-11 items-center" href={href("/katalog")}>Изделия</a>
+    <a class="nav-link inline-flex min-h-11 items-center" href={href("/korzina")}>
+      Корзина<span data-cart-count hidden></span>
     </a>
+    <a class="nav-link inline-flex min-h-11 items-center" href={href("/#o-masterskoy")}>О мастерской</a>
   </nav>
 </header>

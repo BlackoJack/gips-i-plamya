@@ -76,5 +76,57 @@ const structured = [organization, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd :
     <Footer />
     <MobileBar />
     <ContentSync />
+    <script>
+      const cartKey = "gips-cart";
+      const cartId = /^[a-z0-9][a-z0-9_-]{0,40}$/;
+
+      function readCart() {
+        try {
+          const data = JSON.parse(localStorage.getItem(cartKey) || "[]");
+          if (!Array.isArray(data)) return [];
+          return data
+            .filter((item) => item && cartId.test(item.id) && Number.isInteger(item.qty) && item.qty > 0 && item.qty <= 20)
+            .slice(0, 30);
+        } catch {
+          return [];
+        }
+      }
+
+      function paintCart() {
+        const count = readCart().reduce((sum, item) => sum + item.qty, 0);
+        document.querySelectorAll("[data-cart-count]").forEach((node) => {
+          node.textContent = count ? ` ${count}` : "";
+          if (node instanceof HTMLElement) node.hidden = count === 0;
+        });
+      }
+
+      function writeCart(items) {
+        localStorage.setItem(cartKey, JSON.stringify(items));
+        paintCart();
+        document.dispatchEvent(new CustomEvent("gips-cart"));
+      }
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest("[data-add-cart]");
+        if (!(button instanceof HTMLButtonElement)) return;
+        const id = button.dataset.addCart || "";
+        if (!cartId.test(id)) return;
+        const items = readCart();
+        const found = items.find((item) => item.id === id);
+        if (found) found.qty = Math.min(20, found.qty + 1);
+        else items.push({ id, qty: 1 });
+        writeCart(items);
+        if (!button.dataset.cartLabelText) button.dataset.cartLabelText = button.textContent || "В корзину";
+        button.textContent = "В корзине";
+        window.setTimeout(() => {
+          button.textContent = button.dataset.cartLabelText || "В корзину";
+        }, 1200);
+      });
+
+      document.addEventListener("gips-cart", paintCart);
+      paintCart();
+    </script>
   </body>
 </html>
