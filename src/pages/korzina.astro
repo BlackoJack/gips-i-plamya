@@ -98,7 +98,8 @@ const root = href("/").replace(/\/$/, "");
           const photo = /^media\/[a-z0-9][a-z0-9_-]{0,40}\/[a-z0-9][a-z0-9_-]{0,40}\.jpg$/.test(key)
             ? `<img class="cart-photo" alt="" src="${escapeHtml(`${root}/${key}`)}">`
             : `<span class="cart-photo" aria-hidden="true"></span>`;
-          return `<li class="cart-line">${photo}<div><p class="text-sm text-quiet">${escapeHtml(row.id)}</p><p class="font-display text-[1.7rem] leading-none">${escapeHtml(title)}</p><p class="mt-2">${escapeHtml(priceText)}</p></div><div class="col-span-2 flex items-center gap-4 sm:col-span-1 sm:col-start-3"><label class="flex items-center gap-2">Шт<input class="field w-20" data-qty="${escapeHtml(row.id)}" type="number" min="1" max="20" value="${row.qty}"></label><button class="cart-remove" type="button" data-remove="${escapeHtml(row.id)}">Убрать</button></div></li>`;
+          const href = `${root}/izdelie/${encodeURIComponent(row.id)}`;
+          return `<li class="cart-line"><a class="cart-product" href="${escapeHtml(href)}">${photo}<span><span class="block text-sm text-quiet">${escapeHtml(row.id)}</span><span class="cart-title">${escapeHtml(title)}</span><span class="mt-2 block">${escapeHtml(priceText)}</span></span></a><div class="cart-actions"><label class="flex items-center gap-2">Шт<input class="field w-20" data-qty="${escapeHtml(row.id)}" type="number" min="1" max="20" value="${row.qty}"></label><button class="cart-remove" type="button" data-remove="${escapeHtml(row.id)}">Убрать</button></div></li>`;
         })
         .join("");
       if (totalNode) {

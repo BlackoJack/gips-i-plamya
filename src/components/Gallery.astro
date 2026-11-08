@@ -14,7 +14,7 @@ const multiple = images.length > 1;
 <div class="grid gap-3" data-gallery={multiple ? "" : undefined}>
   {
     images.map((image, index) => (
-      <div data-frame hidden={index !== 0}>
+      <div class="photo-feather" data-frame hidden={index !== 0}>
         <Image
           src={image}
           alt={index === 0 ? title : `Кадр ${index + 1} — ${title}`}

@@ -132,19 +132,36 @@
       .order-items { list-style: none; margin: 0; padding: 0; }
       .order-line {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 8px 10px;
         align-items: center;
         padding: 10px 0;
         border-top: 1px solid var(--line);
         font-variant-numeric: lining-nums;
       }
-      .order-line .line-name { grid-column: 1 / -1; }
+      .line-link {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        grid-column: 1 / -1;
+        min-width: 0;
+        color: inherit;
+        text-decoration: none;
+      }
+      .line-photo {
+        width: 52px;
+        height: 66px;
+        object-fit: cover;
+        background: var(--sand);
+        flex: none;
+      }
+      .line-name { min-width: 0; }
+      .line-link:hover .line-name { text-decoration: underline; text-decoration-color: var(--flame); }
       .order-line input { width: 4.75rem; margin-top: 0; }
       .order-add-row select { width: auto; min-width: 12rem; margin-top: 0; flex: 1; }
       @media (min-width: 720px) {
         .order-line { grid-template-columns: minmax(0, 1fr) auto auto auto; }
-        .order-line .line-name { grid-column: auto; }
+        .line-link { grid-column: auto; }
       }
       @media (max-width: 640px) {
         .order-add-row select { width: 100%; }
@@ -240,6 +257,44 @@
         border: 1px solid var(--line);
       }
       .pager .quiet { margin: 0; }
+      button.product-strip, button.fold-strip {
+        width: 100%;
+        display: grid;
+        gap: 2px 10px;
+        align-items: center;
+        text-align: left;
+        background: white;
+        color: var(--ink);
+        border: 1px solid var(--line);
+        font-weight: 500;
+        font-size: 15px;
+        padding: 12px 14px;
+        border-radius: 2px;
+      }
+      button.product-strip {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        grid-template-areas: "photo name price" "photo meta price";
+        margin-top: 8px;
+      }
+      button.product-strip[aria-expanded="true"], button.fold-strip[aria-expanded="true"] {
+        border-color: var(--ink);
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .strip-photo { grid-area: photo; display: block; width: 44px; height: 56px; object-fit: cover; background: var(--sand); }
+      .product-strip .product-name { grid-area: name; }
+      .product-strip .quiet { grid-area: meta; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .product-strip .strip-sum { grid-area: price; }
+      button.fold-strip { display: flex; justify-content: space-between; margin-top: 8px; font-weight: 560; }
+      .fold-body { border: 1px solid var(--line); border-top: 0; padding: 4px 14px 14px; background: #f7f3ec; }
+      .product-block .order, .product-block #product-form {
+        margin-top: 0;
+        border-top: 0;
+        background: #f7f3ec;
+      }
+      #product-form { border: 1px solid var(--line); border-top: 0; padding: 14px; }
+      .shelf-filter { min-width: min(100%, 14rem); flex: 1 1 12rem; }
+      .shelf-filter select { margin-top: 4px; }
       .dock {
         position: fixed;
         left: 0;
@@ -310,24 +365,38 @@
           <div id="orders"></div>
         </section>
         <form id="site-form" class="hidden" data-panel="site">
-          <h2>Тексты</h2>
-          <div id="texts"></div>
-          <h2>Контакты</h2>
-          <p class="note">Пустое поле прячет эту кнопку на сайте. Группа — отдельная ссылка, не вместо личного контакта. Почта для писем с заказами — отдельно, ниже.</p>
-          <div id="contact"></div>
-          <h2>Куда присылать заказы</h2>
-          <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Нужен пароль приложения, не обычный пароль от ящика. Пробелы в пароле можно не убирать.</p>
-          <div id="mail"></div>
-          <div class="row"><button type="button" id="test-mail" class="ghost">Проверить почту</button></div>
-          <p id="mail-status" class="status" role="status"></p>
-          <h2>Поиск и описание</h2>
-          <div id="meta"></div>
-          <h2>Полки</h2>
-          <p class="note">Адрес уже созданной полки не меняется. Новая полка: латиница, например vazy.</p>
-          <div id="categories"></div>
-          <div class="row">
-            <button type="button" id="add-category" class="ghost">Добавить полку</button>
-          </div>
+          <section class="fold">
+            <button type="button" class="fold-strip" data-fold aria-expanded="true">Тексты</button>
+            <div class="fold-body"><div id="texts"></div></div>
+          </section>
+          <section class="fold">
+            <button type="button" class="fold-strip" data-fold aria-expanded="false">Контакты</button>
+            <div class="fold-body" hidden>
+              <p class="note">Пустое поле прячет эту кнопку на сайте. Группа — отдельная ссылка, не вместо личного контакта. Почта для писем с заказами — отдельно, ниже.</p>
+              <div id="contact"></div>
+            </div>
+          </section>
+          <section class="fold">
+            <button type="button" class="fold-strip" data-fold aria-expanded="false">Куда присылать заказы</button>
+            <div class="fold-body" hidden>
+              <p class="note">Сервер smtp.yandex.ru или smtp.gmail.com, порт 465. Нужен пароль приложения, не обычный пароль от ящика. Пробелы в пароле можно не убирать.</p>
+              <div id="mail"></div>
+              <div class="row"><button type="button" id="test-mail" class="ghost">Проверить почту</button></div>
+              <p id="mail-status" class="status" role="status"></p>
+            </div>
+          </section>
+          <section class="fold">
+            <button type="button" class="fold-strip" data-fold aria-expanded="false">Поиск и описание</button>
+            <div class="fold-body" hidden><div id="meta"></div></div>
+          </section>
+          <section class="fold">
+            <button type="button" class="fold-strip" data-fold aria-expanded="false">Полки</button>
+            <div class="fold-body" hidden>
+              <p class="note">Адрес уже созданной полки не меняется. Новая полка: латиница, например vazy.</p>
+              <div id="categories"></div>
+              <div class="row"><button type="button" id="add-category" class="ghost">Добавить полку</button></div>
+            </div>
+          </section>
           <p id="site-status" class="status" role="status"></p>
         </form>
 
@@ -337,6 +406,7 @@
           <label class="search">Найти
             <input id="product-search" type="search" placeholder="Артикул или название" autocomplete="off" />
           </label>
+          <div id="product-tools"></div>
           <div class="row"><button type="button" id="add-product">Новое изделие</button></div>
           <div id="product-list"></div>
           <form id="product-form" class="hidden">
@@ -567,42 +637,155 @@
 
       let productQuery = "";
       let productPage = 1;
+      let productPlace = "all";
+      let productShelf = "all";
+      let openProductId = "";
       const PRODUCT_PAGE = 8;
+      const productTools = document.getElementById("product-tools");
+
+      function shelfTitle(id) {
+        return content.categories.find((category) => category.id === id)?.title || "";
+      }
+
+      function coverNode(id) {
+        const src = imageSrc(((content.products || []).find((item) => item.id === id)?.images || [])[0] || "");
+        const node = document.createElement(src ? "img" : "span");
+        node.className = "strip-photo";
+        if (src) {
+          node.alt = "";
+          node.src = src;
+          node.addEventListener("error", () => {
+            const blank = document.createElement("span");
+            blank.className = "strip-photo";
+            node.replaceWith(blank);
+          });
+        }
+        return node;
+      }
 
       function renderProductList() {
+        productForm.remove();
+        productTools.replaceChildren();
         productList.replaceChildren();
+        const shelved = content.products.filter((product) => productShelf === "all" || product.category === productShelf);
+        const places = [
+          ["all", "Все", shelved.length],
+          ["featured", "На главной", shelved.filter((product) => product.featured).length],
+          ["published", "На сайте", shelved.filter((product) => product.published).length],
+          ["hidden", "Скрытые", shelved.filter((product) => !product.published).length],
+        ];
+        const filters = document.createElement("div");
+        filters.className = "filters";
+        filters.setAttribute("role", "group");
+        filters.setAttribute("aria-label", "Где видно изделие");
+        for (const [value, label, count] of places) {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.textContent = `${label} ${count}`;
+          chip.setAttribute("aria-pressed", productPlace === value ? "true" : "false");
+          chip.addEventListener("click", () => {
+            productPlace = value;
+            productPage = 1;
+            renderProductList();
+          });
+          filters.append(chip);
+        }
+        const shelf = document.createElement("label");
+        shelf.className = "shelf-filter";
+        shelf.textContent = "Полка";
+        const select = document.createElement("select");
+        select.setAttribute("aria-label", "Полка");
+        const any = document.createElement("option");
+        any.value = "all";
+        any.textContent = "Все полки";
+        any.selected = productShelf === "all";
+        select.append(any);
+        for (const category of content.categories) {
+          const option = document.createElement("option");
+          option.value = category.id;
+          option.textContent = category.title;
+          option.selected = productShelf === category.id;
+          select.append(option);
+        }
+        select.addEventListener("change", () => {
+          productShelf = select.value;
+          productPage = 1;
+          renderProductList();
+        });
+        shelf.append(select);
+        productTools.append(filters, shelf);
+
         const query = productQuery.trim().toLowerCase();
-        const filtered = content.products.filter((product) => {
+        const filtered = shelved.filter((product) => {
+          if (productPlace === "featured" && !product.featured) return false;
+          if (productPlace === "published" && !product.published) return false;
+          if (productPlace === "hidden" && product.published) return false;
           if (!query) return true;
           return `${product.id} ${product.title}`.toLowerCase().includes(query);
         });
-        if (!filtered.length) {
+        if (openProductId === "new") {
+          const fresh = document.createElement("div");
+          fresh.className = "product-block";
+          if (creating) productForm.classList.remove("hidden");
+          fresh.append(productForm);
+          productList.append(fresh);
+        }
+        if (!filtered.length && openProductId !== "new") {
           productList.textContent = content.products.length ? "Ничего не нашлось." : "Пока нет изделий.";
+          productForm.classList.add("hidden");
+          productList.after(productForm);
+          syncDock();
           return;
         }
         const pages = Math.max(1, Math.ceil(filtered.length / PRODUCT_PAGE));
         if (productPage > pages) productPage = pages;
         const slice = filtered.slice((productPage - 1) * PRODUCT_PAGE, productPage * PRODUCT_PAGE);
+        let placed = openProductId === "new";
         for (const product of slice) {
-          const row = document.createElement("div");
-          row.className = "product-row";
-          const text = document.createElement("div");
-          const name = document.createElement("p");
+          const open = openProductId === product.id;
+          const block = document.createElement("div");
+          block.className = "product-block";
+          const strip = document.createElement("button");
+          strip.type = "button";
+          strip.className = "product-strip";
+          strip.setAttribute("aria-expanded", open ? "true" : "false");
+          const name = document.createElement("span");
           name.className = "product-name";
           name.textContent = product.title || product.id;
-          const meta = document.createElement("p");
+          const meta = document.createElement("span");
           meta.className = "quiet";
-          meta.textContent = `${product.id} · ${priceLabel(product.price)} · ${product.published ? "на сайте" : "скрыто"}`;
-          text.append(name, meta);
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "ghost";
-          button.textContent = "Править";
-          button.addEventListener("click", () => openProduct(product, false));
-          row.append(text, button);
-          productList.append(row);
+          const flags = [product.featured ? "на главной" : "", product.published ? "на сайте" : "скрыто"].filter(Boolean);
+          meta.textContent = [product.id, shelfTitle(product.category), ...flags].filter(Boolean).join(" · ");
+          const sum = document.createElement("span");
+          sum.className = "strip-sum";
+          sum.textContent = priceLabel(product.price);
+          strip.append(coverNode(product.id), name, meta, sum);
+          strip.addEventListener("click", () => {
+            if (openProductId === product.id) {
+              openProductId = "";
+              productForm.classList.add("hidden");
+            } else {
+              openProductId = product.id;
+            }
+            renderProductList();
+            if (openProductId === product.id) openProduct(product, false);
+          });
+          block.append(strip);
+          if (open) {
+            if (editing?.id === product.id) productForm.classList.remove("hidden");
+            block.append(productForm);
+            placed = true;
+          }
+          productList.append(block);
         }
-        if (pages < 2) return;
+        if (!placed) {
+          productForm.classList.add("hidden");
+          productList.after(productForm);
+        }
+        if (pages < 2) {
+          syncDock();
+          return;
+        }
         const pager = document.createElement("div");
         pager.className = "pager";
         const prev = document.createElement("button");
@@ -612,6 +795,10 @@
         prev.addEventListener("click", () => {
           productPage -= 1;
           renderProductList();
+          if (openProductId && openProductId !== "new") {
+            const product = content.products.find((item) => item.id === openProductId);
+            if (product) openProduct(product, false);
+          }
         });
         const label = document.createElement("p");
         label.className = "quiet";
@@ -623,9 +810,14 @@
         next.addEventListener("click", () => {
           productPage += 1;
           renderProductList();
+          if (openProductId && openProductId !== "new") {
+            const product = content.products.find((item) => item.id === openProductId);
+            if (product) openProduct(product, false);
+          }
         });
         pager.append(prev, label, next);
         productList.append(pager);
+        syncDock();
       }
 
       function categorySelect(selected) {
@@ -720,7 +912,9 @@
           checks.append(wrap);
         }
         productFields.append(checks);
-        document.getElementById("product-heading").textContent = isNew ? "Новое изделие" : editing.title;
+        const heading = document.getElementById("product-heading");
+        heading.textContent = isNew ? "Новое изделие" : editing.title;
+        heading.hidden = !isNew;
         document.getElementById("delete-product").classList.toggle("hidden", isNew);
         renderPhotos();
         productStatus.textContent = isNew ? "Сохраните карточку, затем добавьте фото." : "";
@@ -1054,9 +1248,27 @@
             for (const item of lines) {
               const row = document.createElement("li");
               row.className = "order-line";
+              const link = document.createElement("a");
+              link.className = "line-link";
+              link.href = `/izdelie/${item.id}`;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              const src = imageSrc(((content.products || []).find((product) => product.id === item.id)?.images || [])[0] || "");
+              const photo = document.createElement(src ? "img" : "span");
+              photo.className = "line-photo";
+              if (src) {
+                photo.alt = "";
+                photo.src = src;
+                photo.addEventListener("error", () => {
+                  const blank = document.createElement("span");
+                  blank.className = "line-photo";
+                  photo.replaceWith(blank);
+                });
+              }
               const name = document.createElement("span");
               name.className = "line-name";
               name.textContent = `${item.title} · ${item.id}`;
+              link.append(photo, name);
               const qtyLabel = document.createElement("label");
               qtyLabel.textContent = "Шт ";
               const qty = document.createElement("input");
@@ -1092,7 +1304,7 @@
                 state.textContent = "";
                 paintLines();
               });
-              row.append(name, qtyLabel, sum, drop);
+              row.append(link, qtyLabel, sum, drop);
               items.append(row);
             }
             paintAdd();
@@ -1219,10 +1431,20 @@
           productStatus.textContent = collected.error;
           return false;
         }
+        const wasNew = creating;
         const result = await admin("save-product", { create: creating, product: collected.product });
         content = result.content;
         creating = false;
         editing.id = collected.product.id;
+        openProductId = collected.product.id;
+        if (wasNew) {
+          productPlace = "all";
+          productShelf = "all";
+          productQuery = "";
+          document.getElementById("product-search").value = "";
+          const index = content.products.findIndex((item) => item.id === openProductId);
+          productPage = index >= 0 ? Math.floor(index / PRODUCT_PAGE) + 1 : 1;
+        }
         const idInput = productForm.querySelector('input[name="id"]');
         if (idInput) idInput.readOnly = true;
         document.getElementById("delete-product").classList.remove("hidden");
@@ -1314,6 +1536,8 @@
       });
 
       document.getElementById("add-product").addEventListener("click", () => {
+        openProductId = "new";
+        renderProductList();
         openProduct(
           {
             id: "",
@@ -1357,6 +1581,7 @@
           const result = await admin("delete-product", { id: editing.id });
           content = result.content;
           editing = null;
+          openProductId = "";
           productForm.classList.add("hidden");
           syncDock();
           renderProductList();
@@ -1392,6 +1617,18 @@
           if (error.message === "type") productStatus.textContent = "Это фото не открылось. Сохраните его как JPEG.";
           else if (error.message === "size") productStatus.textContent = "Фото слишком большое.";
           else productStatus.textContent = message(error);
+        }
+      });
+
+      siteForm.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-fold]");
+        if (!button) return;
+        const willOpen = button.getAttribute("aria-expanded") !== "true";
+        for (const item of siteForm.querySelectorAll("[data-fold]")) {
+          const body = item.nextElementSibling;
+          const on = item === button && willOpen;
+          item.setAttribute("aria-expanded", on ? "true" : "false");
+          if (body) body.hidden = !on;
         }
       });
 

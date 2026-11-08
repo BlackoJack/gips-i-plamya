@@ -69,8 +69,8 @@
   function cardHtml(product: Product, content: LiveContent, level: "h2" | "h3") {
     const category = categoryOf(content, product.category);
     const cover = product.images[0]
-      ? `<img src="${escapeHtml(href(`/${product.images[0]}`))}" alt="" class="aspect-[4/5] w-full rounded-[2px] object-cover" loading="lazy">`
-      : `<div class="aspect-[4/5] w-full rounded-[2px] bg-sand"></div>`;
+      ? `<span class="photo-feather block"><img src="${escapeHtml(href(`/${product.images[0]}`))}" alt="" class="aspect-[4/5] w-full rounded-[2px] object-cover" loading="lazy"></span>`
+      : `<span class="photo-feather block"><span class="block aspect-[4/5] w-full rounded-[2px] bg-sand"></span></span>`;
     return `<a href="${escapeHtml(href(`/izdelie/${product.id}`))}" class="group block">${cover}<p class="mt-4 text-sm text-quiet">${escapeHtml(category?.title || "")}${category?.title ? " · " : ""}${escapeHtml(product.id)}</p><${level} class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">${escapeHtml(product.title)}</${level}><p class="mt-2 max-w-sm text-quiet">${escapeHtml(product.summary)}</p><p class="mt-2">${escapeHtml(priceText(product, content))}</p></a>`;
   }
 
@@ -91,7 +91,7 @@
     const frames = images
       .map((key, index) => {
         const alt = index === 0 ? title : `Кадр ${index + 1} — ${title}`;
-        return `<div data-live-frame data-index="${index}"${index === 0 ? "" : " hidden"}><img src="${escapeHtml(href(`/${key}`))}" alt="${escapeHtml(alt)}" class="h-auto w-full rounded-[2px]"${index === 0 ? "" : ' loading="lazy"'}></div>`;
+        return `<div class="photo-feather" data-live-frame data-index="${index}"${index === 0 ? "" : " hidden"}><img src="${escapeHtml(href(`/${key}`))}" alt="${escapeHtml(alt)}" class="h-auto w-full rounded-[2px]"${index === 0 ? "" : ' loading="lazy"'}></div>`;
       })
       .join("");
     if (images.length < 2) return `<div class="grid gap-3">${frames}</div>`;

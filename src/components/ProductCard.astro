@@ -19,15 +19,17 @@ const price = product.data.price === null ? content.product.priceLater : money(p
 ---
 
 <a href={href(`/izdelie/${product.id}`)} class="group block">
-  <Image
-    src={cover}
-    alt=""
-    widths={[360, 540, 720]}
-    sizes="(min-width: 1024px) 340px, (min-width: 640px) 46vw, 100vw"
-    quality={74}
-    loading="lazy"
-    class="aspect-[4/5] w-full rounded-[2px] object-cover"
-  />
+  <span class="photo-feather block">
+    <Image
+      src={cover}
+      alt=""
+      widths={[360, 540, 720]}
+      sizes="(min-width: 1024px) 340px, (min-width: 640px) 46vw, 100vw"
+      quality={74}
+      loading="lazy"
+      class="aspect-[4/5] w-full rounded-[2px] object-cover"
+    />
+  </span>
   <p class="mt-4 text-sm text-quiet">{category?.title} · {product.id}</p>
   <Title class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">
     {product.data.title}
