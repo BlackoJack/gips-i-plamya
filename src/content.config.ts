@@ -16,6 +16,7 @@ const products = defineCollection({
   schema: z.object({
     title: z.string().min(1),
     price: z.number().nonnegative().nullable().default(null),
+    stock: z.number().int().nonnegative().max(9999).default(0),
     category: z.enum(categoryIds),
     summary: z.string().min(1),
     featured: z.boolean().default(false),

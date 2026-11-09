@@ -133,6 +133,50 @@ test("слияние добавляет новый id и не затирает �
   assert.equal(mergeContent(merged.value, extra).changed, false);
 });
 
+test("количество сохраняется, пустое считается нулём", () => {
+  const seed = sanitizeContent(JSON.parse(fs.readFileSync(path.join(__dirname, "content.default.json"), "utf8")));
+  const ready = draftFrom(seed);
+  ready.products.push({
+    id: "vaza-1",
+    title: "Ваза",
+    price: 1900,
+    stock: 4,
+    category: "vases",
+    summary: "Строка",
+    body: "Описание вещи.",
+    featured: true,
+    order: 1,
+    published: true,
+    images: ["media/vaza-1/1.jpg"],
+  });
+  const saved = sanitizeContent(ready);
+  assert.equal(saved.products.find((item) => item.id === "vaza-1").stock, 4);
+  assert.equal(toPublic(saved).products.find((item) => item.id === "vaza-1").stock, 4);
+
+  const legacy = draftFrom(seed);
+  legacy.products.push({
+    id: "vaza-2",
+    title: "Старая ваза",
+    price: 500,
+    category: "vases",
+    summary: "",
+    body: "",
+    featured: false,
+    order: 2,
+    published: false,
+    images: [],
+  });
+  const kept = sanitizeContent(legacy);
+  assert.equal(kept.products.find((item) => item.id === "vaza-2").stock, 0);
+
+  ready.products[0].stock = -1;
+  assert.equal(sanitizeContent(ready), null);
+  ready.products[0].stock = 1.5;
+  assert.equal(sanitizeContent(ready), null);
+  ready.products[0].stock = 10000;
+  assert.equal(sanitizeContent(ready), null);
+});
+
 test("пароль сравнивается целиком, префикс не подходит", () => {
   const previous = process.env.ADMIN_PASSWORD;
   process.env.ADMIN_PASSWORD = "secret-secret";

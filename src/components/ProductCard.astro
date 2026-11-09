@@ -16,6 +16,7 @@ const Title = level;
 const category = categoryById(product.data.category);
 const cover = imagesOf(product)[0];
 const price = product.data.price === null ? content.product.priceLater : money(product.data.price);
+const inStock = product.data.stock > 0;
 ---
 
 <article class="piece">
@@ -37,6 +38,7 @@ const price = product.data.price === null ? content.product.priceLater : money(p
     </Title>
     <p class="mt-2 max-w-sm text-quiet">{product.data.summary}</p>
     <p class="mt-2">{price}</p>
+    <p class:list={["stock-line", { "is-stock": inStock }]}>{inStock ? "В наличии" : "Под заказ"}</p>
   </a>
   <button class="btn btn-ink piece-cart" type="button" data-add-cart={product.id} data-cart-label>
     {content.product.want}

@@ -28,6 +28,7 @@
     id: string;
     title: string;
     price: number | null;
+    stock?: number;
     category: string;
     summary: string;
     body: string;
@@ -80,13 +81,18 @@
     return product.price == null ? content.texts.product.priceLater : money(product.price);
   }
 
+  function stockHtml(product: Product) {
+    const ready = Number(product.stock) > 0;
+    return `<p class="stock-line${ready ? " is-stock" : ""}">${ready ? "В наличии" : "Под заказ"}</p>`;
+  }
+
   function cardHtml(product: Product, content: LiveContent, level: "h2" | "h3") {
     const category = categoryOf(content, product.category);
     const cover = product.images[0]
       ? `<span class="photo-feather piece-photo block"><img src="${escapeHtml(href(`/${product.images[0]}`))}" alt="" class="aspect-[4/5] w-full object-cover" loading="lazy"></span>`
       : `<span class="photo-feather piece-photo block"><span class="block aspect-[4/5] w-full bg-sand"></span></span>`;
     const want = content.texts?.product?.want || "В корзину";
-    return `<article class="piece"><a href="${escapeHtml(href(`/izdelie/${product.id}`))}" class="piece-link group">${cover}<p class="mt-4 text-sm text-quiet">${escapeHtml(category?.title || "")}${category?.title ? " · " : ""}${escapeHtml(product.id)}</p><${level} class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">${escapeHtml(product.title)}</${level}><p class="mt-2 max-w-sm text-quiet">${escapeHtml(product.summary)}</p><p class="mt-2">${escapeHtml(priceText(product, content))}</p></a><button class="btn btn-ink piece-cart" type="button" data-add-cart="${escapeHtml(product.id)}" data-cart-label>${escapeHtml(want)}</button></article>`;
+    return `<article class="piece"><a href="${escapeHtml(href(`/izdelie/${product.id}`))}" class="piece-link group">${cover}<p class="mt-4 text-sm text-quiet">${escapeHtml(category?.title || "")}${category?.title ? " · " : ""}${escapeHtml(product.id)}</p><${level} class="mt-1 font-display text-[2rem] leading-none font-medium group-hover:underline group-hover:decoration-flame group-hover:underline-offset-[0.14em]">${escapeHtml(product.title)}</${level}><p class="mt-2 max-w-sm text-quiet">${escapeHtml(product.summary)}</p><p class="mt-2">${escapeHtml(priceText(product, content))}</p>${stockHtml(product)}</a><button class="btn btn-ink piece-cart" type="button" data-add-cart="${escapeHtml(product.id)}" data-cart-label>${escapeHtml(want)}</button></article>`;
   }
 
   function fillGrid(grid: Element, products: Product[], content: LiveContent, level: "h2" | "h3") {
@@ -297,7 +303,7 @@
         : `<section class="mt-20"><h2 class="font-display text-[clamp(32px,4vw,48px)] leading-none">${escapeHtml(content.texts.product.more)}</h2><ul class="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">${related
             .map((item) => `<li>${cardHtml(item, content, "h3")}</li>`)
             .join("")}</ul></section>`;
-    return `<div class="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">${galleryHtml(product.images, product.title)}<div>${categoryLink}<h1 class="mt-3 font-display text-[clamp(40px,5vw,68px)] leading-[0.95]">${escapeHtml(product.title)}</h1><p class="mt-3 text-sm tracking-wide text-quiet">Артикул ${escapeHtml(product.id)}</p><p class="handmade mt-3">Сделано вручную</p><p class="mt-4 text-xl">${escapeHtml(priceText(product, content))}</p><div class="product-text mt-6 max-w-prose">${paragraphs(product.body)}</div>${action}</div></div>${relatedHtml}`;
+    return `<div class="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">${galleryHtml(product.images, product.title)}<div>${categoryLink}<h1 class="mt-3 font-display text-[clamp(40px,5vw,68px)] leading-[0.95]">${escapeHtml(product.title)}</h1><p class="mt-3 text-sm tracking-wide text-quiet">Артикул ${escapeHtml(product.id)}</p><p class="handmade mt-3">Сделано вручную</p><p class="mt-4 text-xl">${escapeHtml(priceText(product, content))}</p>${stockHtml(product)}<div class="product-text mt-6 max-w-prose">${paragraphs(product.body)}</div>${action}</div></div>${relatedHtml}`;
   }
 
   function rememberProduct(product: Product) {
@@ -322,7 +328,13 @@
       brand: { "@type": "Brand", name: siteName() },
     };
     if (product.price != null) {
-      productLd.offers = { "@type": "Offer", priceCurrency: "RUB", price: product.price, url: pageUrl };
+      productLd.offers = {
+        "@type": "Offer",
+        priceCurrency: "RUB",
+        price: product.price,
+        url: pageUrl,
+        availability: Number(product.stock) > 0 ? "https://schema.org/InStock" : "https://schema.org/PreOrder",
+      };
     }
     for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
       try {

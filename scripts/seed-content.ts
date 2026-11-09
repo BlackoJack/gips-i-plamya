@@ -61,6 +61,7 @@ function readProduct(id: string) {
       id,
       title: data.title,
       price: data.price ?? null,
+      stock: Number.isInteger(data.stock) && (data.stock as number) >= 0 ? data.stock : 0,
       category: data.category,
       summary: data.summary ?? "",
       body: match[2].trim(),

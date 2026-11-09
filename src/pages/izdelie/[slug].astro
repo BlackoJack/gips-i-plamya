@@ -26,6 +26,7 @@ const category = categoryById(product.data.category);
 const images = imagesOf(product);
 const { Content } = await render(product);
 const priceLabel = product.data.price === null ? null : money(product.data.price);
+const inStock = product.data.stock > 0;
 const pageUrl = new URL(Astro.url.pathname, Astro.site ?? config.siteUrl).toString();
 const others = (await getPublished()).filter(
   (item) => item.data.category === product.data.category && item.id !== product.id,
@@ -48,6 +49,7 @@ if (product.data.price !== null) {
     priceCurrency: "RUB",
     price: product.data.price,
     url: pageUrl,
+    availability: inStock ? "https://schema.org/InStock" : "https://schema.org/PreOrder",
   };
 }
 ---
@@ -68,6 +70,7 @@ if (product.data.price !== null) {
         <p class="mt-3 text-sm tracking-wide text-quiet">Артикул {product.id}</p>
         <p class="handmade mt-3">Сделано вручную</p>
         <p class="mt-4 text-xl">{priceLabel ?? content.product.priceLater}</p>
+        <p class:list={["stock-line", { "is-stock": inStock }]}>{inStock ? "В наличии" : "Под заказ"}</p>
         <div class="product-text mt-6 max-w-prose">
           <Content />
         </div>

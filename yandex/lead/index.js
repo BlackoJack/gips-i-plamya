@@ -458,6 +458,15 @@ function cleanPrice(value) {
   return { ok: true, value: number };
 }
 
+function cleanStock(value) {
+  if (value == null || value === "") return { ok: true, value: 0 };
+  if (typeof value === "boolean") return fail("validation");
+  if (typeof value === "string" && value.trim() === "") return { ok: true, value: 0 };
+  const number = typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isInteger(number) || number < 0 || number > 9999) return fail("validation");
+  return { ok: true, value: number };
+}
+
 function compareProducts(a, b) {
   const byOrder = a.order - b.order;
   if (byOrder !== 0) return byOrder;
@@ -568,6 +577,8 @@ function checkProduct(input, categories) {
   if (!Number.isInteger(input.order) || input.order < 0 || input.order > 9999) return fail("validation");
   const price = cleanPrice(input.price);
   if (!price.ok) return price;
+  const stock = cleanStock(input.stock);
+  if (!stock.ok) return stock;
   const summary = input.published ? cleanRequired(input.summary, 240) : cleanLine(input.summary, 240);
   const body = input.published ? cleanBody(input.body, 4000) : cleanBody(input.body, 4000);
   if (summary == null || body == null) return fail("validation");
@@ -586,6 +597,7 @@ function checkProduct(input, categories) {
       id,
       title,
       price: price.value,
+      stock: stock.value,
       category,
       summary: summary || "",
       body: body || "",

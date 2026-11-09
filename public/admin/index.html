@@ -683,6 +683,8 @@
         if (settings.autocomplete) input.autocomplete = settings.autocomplete;
         if (settings.required) input.required = true;
         if (settings.readOnly) input.readOnly = true;
+        if (settings.min != null) input.min = String(settings.min);
+        if (settings.max != null) input.max = String(settings.max);
         wrap.append(input);
         return wrap;
       }
@@ -905,7 +907,11 @@
           name.textContent = product.title || product.id;
           const meta = document.createElement("span");
           meta.className = "quiet";
-          const flags = [product.featured ? "на главной" : "", product.published ? "на сайте" : "скрыто"].filter(Boolean);
+          const flags = [
+            Number(product.stock) > 0 ? `в наличии ${product.stock}` : "под заказ",
+            product.featured ? "на главной" : "",
+            product.published ? "на сайте" : "скрыто",
+          ].filter(Boolean);
           meta.textContent = [product.id, shelfTitle(product.category), ...flags].filter(Boolean).join(" · ");
           const sum = document.createElement("span");
           sum.className = "strip-sum";
@@ -1044,6 +1050,7 @@
           id: isNew && !product.id ? nextArticle() : product.id,
           title: product.title,
           price: product.price,
+          stock: Number.isInteger(product.stock) ? product.stock : 0,
           category: product.category,
           summary: product.summary,
           body: product.body,
@@ -1062,6 +1069,11 @@
         }
         productFields.append(field("title", "Название", editing.title, { required: true }));
         productFields.append(field("price", "Цена, ₽", editing.price ?? "", { placeholder: "Пусто — цену напишем" }));
+        productFields.append(field("stock", "Количество", String(editing.stock ?? 0), { type: "number", min: 0, max: 9999 }));
+        const stockNote = document.createElement("p");
+        stockNote.className = "note";
+        stockNote.textContent = "Больше нуля — на сайте «В наличии». Ноль — «Под заказ».";
+        productFields.append(stockNote);
         productFields.append(categorySelect(editing.category));
         productFields.append(field("summary", "Короткая строка", editing.summary));
         productFields.append(field("body", "Описание", editing.body, { multiline: true }));
@@ -1366,6 +1378,10 @@
         const data = new FormData(productForm);
         const rawPrice = String(data.get("price") || "").trim();
         if (rawPrice && !/^\d+$/.test(rawPrice)) return { error: "Цена — целое число рублей или пусто." };
+        const rawStock = String(data.get("stock") ?? "").trim();
+        if (rawStock && !/^\d+$/.test(rawStock)) return { error: "Количество — целое число от 0 до 9999. Ноль значит «под заказ»." };
+        const stock = rawStock ? Number(rawStock) : 0;
+        if (stock > 9999) return { error: "Количество — целое число от 0 до 9999." };
         const rawOrder = String(data.get("order") || "").trim();
         if (!/^\d+$/.test(rawOrder)) return { error: "Порядок — целое число." };
         const id = String(data.get("id") || "").trim();
@@ -1374,6 +1390,7 @@
             id,
             title: String(data.get("title") || ""),
             price: rawPrice ? Number(rawPrice) : null,
+            stock,
             category: String(data.get("category") || ""),
             summary: String(data.get("summary") || ""),
             body: String(data.get("body") || ""),
@@ -2025,6 +2042,7 @@
             id: "",
             title: "",
             price: null,
+            stock: 0,
             category: content.categories[0]?.id || "",
             summary: "",
             body: "",
