@@ -1,7 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import { content } from "../data/content";
-import { href } from "../config";
+import { config, href } from "../config";
 import still from "../assets/brand/still-life.jpg";
 ---
 
@@ -14,6 +14,7 @@ import still from "../assets/brand/still-life.jpg";
       <span class="block"><span class="italic">и</span> пламя</span>
     </h1>
     <p class="mt-5 max-w-md text-lg text-quiet" data-text="hero.line">{content.hero.line}</p>
+    <p class="mt-2 text-sm text-quiet">{config.city}</p>
     <div class="mt-8">
       <a class="btn btn-ink" href={href("/katalog")} data-text="hero.catalog">{content.hero.catalog}</a>
     </div>
