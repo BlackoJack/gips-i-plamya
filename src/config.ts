@@ -5,7 +5,7 @@
 
 export const config = {
   name: "Гипс и пламя",
-  siteUrl: "https://blackojack.github.io",
+  siteUrl: "https://gipsplamya.site",
   contacts: {
     telegram: "",
     whatsapp: "",
