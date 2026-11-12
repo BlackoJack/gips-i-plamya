@@ -6,7 +6,7 @@
 export const config = {
   name: "Гипс и пламя",
   city: "Новосибирск",
-  siteUrl: "https://gipsplamya.site",
+  siteUrl: "https://gipsplamya.com",
   contacts: {
     telegram: "",
     whatsapp: "",

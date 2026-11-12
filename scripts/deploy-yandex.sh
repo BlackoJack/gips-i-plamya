@@ -215,15 +215,16 @@ else
 fi
 
 domain="$(yc serverless api-gateway get --name "$gw_name" --format json | json_field domain)"
-site_url="https://${domain}"
+site_url="${PUBLIC_SITE_URL:-https://gipsplamya.ru}"
 
 yc storage bucket update --name "$bucket" --cors \
-  "allowed-methods=[method-put,method-get,method-head],allowed-origins=[${site_url}],allowed-headers=[*],expose-headers=[ETag],max-age-seconds=3600" \
+  "allowed-methods=[method-put,method-get,method-head],allowed-origins=[${site_url},https://${domain}],allowed-headers=[*],expose-headers=[ETag],max-age-seconds=3600" \
   >/dev/null
 
 if [[ "${SKIP_SITE:-}" == "1" ]]; then
   echo
   echo "Сайт: ${site_url}"
+  echo "Шлюз: https://${domain}"
   echo "Админка: ${site_url}/admin"
   exit 0
 fi

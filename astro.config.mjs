@@ -58,7 +58,7 @@ function devGateway() {
  * В Actions эти значения подставляет configure-pages.
  * Без переменных собирается обычная корневая версия для локального просмотра.
  */
-const site = process.env.SITE_URL || "https://gipsplamya.site";
+const site = process.env.SITE_URL || "https://gipsplamya.ru";
 const base = process.env.BASE_PATH || "/";
 
 export default defineConfig({
